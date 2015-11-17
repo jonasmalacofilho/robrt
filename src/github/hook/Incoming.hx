@@ -53,7 +53,7 @@ class Incoming {
 		var event = switch (event) {
 		case "ping": GitHubPing(data);  // TODO validate
 		case "push": GitHubPush(data);  // TODO validate
-		case "pull-request": GitHubPullRequest(data);  // TODO validate
+		case "pull_request": GitHubPullRequest(data);  // TODO validate
 		case _:
 			throw 'Event $event not supported yet';
 		}

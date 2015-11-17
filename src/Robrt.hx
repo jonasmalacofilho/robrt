@@ -5,15 +5,17 @@ import github.hook.Incoming;
 import neko.Web;
 
 class Robrt {
-	static var id:String;
+	static var deliveryId:String;
+	static var buildId:String;
 
 	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
 		if (p.customParams != null)
 			msg = msg + ',' + p.customParams.join(',');
 		msg = '$msg  @${p.fileName}:${p.lineNumber}\n';
-		if (id != null)
-			msg = '[$id]: $msg';
+		if (buildId != null)
+			msg = '[$buildId]: $msg';
+		msg = 'Robrt$msg';
 		Sys.stderr().writeString(msg);
 	}
 
@@ -29,11 +31,28 @@ class Robrt {
 		return (data:ServerConfig);
 	}
 
+	static function parseRef(ref:String)
+	{
+		return ~/^refs\/(heads|tags)\//.replace(ref, "");
+	}
+
+	static function randomBytes(n:Int)
+	{
+		var b = haxe.io.Bytes.alloc(n);
+		var f = sys.io.File.read("/dev/urandom", true);
+		var r = 0;
+		while (r < n)
+			r += f.readBytes(b, r, (n - r));
+		return b;
+	}
+
 	static function execute():Int
 	{
 		var config = readConfig();
 		var hook = Incoming.fromWeb();
-		id = hook.delivery;
+		deliveryId = hook.delivery;
+		buildId = randomBytes(4).toHex();
+		trace('DELIVERY: $deliveryId');
 
 		var candidates = [];
 		for (r in config.repositories) {
@@ -56,11 +75,35 @@ class Robrt {
 		}
 		trace("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
-		for (r in candidates) {
-			switch (delivery.event) {
-			case GitHubPing(e):  // NOOP
-			case GitHubPush(e):  // TODO clone, build and deploy
-			case GitHubPullRequest(e):  // TODO clone, apply, build and deploy
+		switch (delivery.event) {
+		case GitHubPing(e):
+			// NOOP
+		case GitHubPush(e):
+			var refName = parseRef(e.ref);
+			if (e.deleted) {
+				trace('action: deleted $refName');
+				// TODO delete
+				return 202;  // accepted
+			}
+			if (e.created)
+				trace('action: created $refName');
+			else
+				trace('action: pushed $refName');
+			for (repo in candidates) {
+				trace("TODO clone, check, checkout, build and deploy");
+				return 501;
+			}
+		case GitHubPullRequest(e):
+			switch (e.action) {
+			case Assigned, Unassigned, Labeled, Unlabeled, Closed:
+				return 202;
+			case _:  // nothing
+			}
+			trace('base: ${e.pull_request.base.ref}');
+			trace('head: ${e.pull_request.head.ref}');
+			for (repo in candidates) {
+				trace("TODO clone, check, checkout, merge , build and deploy");
+				return 501;
 			}
 		}
 		return 200;
@@ -73,11 +116,12 @@ class Robrt {
 			if (Web.isTora)
 				Web.cacheModule(main);
 			try {
-				Web.setReturnCode(execute());
+				var status = execute();
+				trace('return: status $status');
+				Web.setReturnCode(status);
 			} catch (e:Dynamic) {
 				trace("ERROR: uncaught exception");
-				trace('Exception: $e');
-				trace(haxe.CallStack.toString(haxe.CallStack.exceptionStack()));
+				trace('Exception: $e\n${haxe.CallStack.toString(haxe.CallStack.exceptionStack())}');
 				try Web.setReturnCode(500) catch (e:Dynamic) {}
 			}
 		} else {
