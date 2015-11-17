@@ -5,8 +5,8 @@ import github.hook.Incoming;
 import neko.Web;
 
 class Robrt {
-	static var deliveryId:String;
 	static var buildId:String;
+	static var urandom:sys.io.FileInput;
 
 	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
@@ -39,10 +39,9 @@ class Robrt {
 	static function randomBytes(n:Int)
 	{
 		var b = haxe.io.Bytes.alloc(n);
-		var f = sys.io.File.read("/dev/urandom", true);
 		var r = 0;
 		while (r < n)
-			r += f.readBytes(b, r, (n - r));
+			r += urandom.readBytes(b, r, (n - r));
 		return b;
 	}
 
@@ -50,9 +49,8 @@ class Robrt {
 	{
 		var config = readConfig();
 		var hook = Incoming.fromWeb();
-		deliveryId = hook.delivery;
 		buildId = randomBytes(4).toHex();
-		trace('DELIVERY: $deliveryId');
+		trace('DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
 		for (r in config.repositories) {
@@ -115,6 +113,8 @@ class Robrt {
 		if (Web.isModNeko) {
 			if (Web.isTora)
 				Web.cacheModule(main);
+			buildId = null;
+			urandom = sys.io.File.read("/dev/urandom", true);
 			try {
 				var status = execute();
 				trace('return: status $status');
@@ -124,6 +124,7 @@ class Robrt {
 				trace('Exception: $e\n${haxe.CallStack.toString(haxe.CallStack.exceptionStack())}');
 				try Web.setReturnCode(500) catch (e:Dynamic) {}
 			}
+			urandom.close();
 		} else {
 			readConfig();  // TODO cli interface for validating config files
 		}
