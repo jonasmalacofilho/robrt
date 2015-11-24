@@ -1,0 +1,22 @@
+{
+  "name": "robrt",
+  "version": "0.0.1-alpha.1",
+  "description": "A robot that listens to GitHub events and deploys stuff",
+  "bin": {
+    "robrt": "robrt"
+  },
+  "main": "robrt.js",
+  "directories": {
+    "src": "src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jonasmalacofilho/robrt.git"
+  },
+  "author": "Jonas Malaco Filho <jonas@elebeta.com.br> (https://jonasmalaco.com)",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/jonasmalacofilho/robrt/issues"
+  },
+  "homepage": "https://github.com/jonasmalacofilho/robrt#readme"
+}

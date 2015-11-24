@@ -1,22 +1,33 @@
+import github.hook.Incoming;
 import robrt.Variables;
 import robrt.data.RepoConfig;
 import robrt.data.ServerConfig;
-import github.hook.Incoming;
-import neko.Web;
+
+#if nodejs
+import js.node.*;
+import js.node.http.*;
+#end
 
 class Robrt {
 	static var buildId:String;
-	static var urandom:sys.io.FileInput;
+#if !nodejs
+	static var urandom:haxe.io.Input;
+#end
 
 	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
 		if (p.customParams != null)
 			msg = msg + ',' + p.customParams.join(',');
-		msg = '$msg  @${p.fileName}:${p.lineNumber}\n';
+		msg = '$msg  @${p.fileName}:${p.lineNumber}';
 		if (buildId != null)
-			msg = '[$buildId]: $msg';
-		msg = 'Robrt$msg';
-		Sys.stderr().writeString(msg);
+			msg = 'Robrt[$buildId]: $msg';
+		else
+			msg = 'Robrt: $msg';
+#if nodejs
+		js.Node.console.log(msg);
+#else
+		Sys.stderr().writeString(msg + "\n");
+#end
 	}
 
 	static function readConfig()
@@ -38,17 +49,21 @@ class Robrt {
 
 	static function randomBytes(n:Int)
 	{
+#if nodejs
+		return Crypto.randomBytes(n).hxToBytes();
+#else
 		var b = haxe.io.Bytes.alloc(n);
 		var r = 0;
 		while (r < n)
 			r += urandom.readBytes(b, r, (n - r));
 		return b;
+#end
 	}
 
-	static function execute():Int
+	static function execute(web:Web):Int
 	{
 		var config = readConfig();
-		var hook = Incoming.fromWeb(Web);
+		var hook = Incoming.fromWeb(web);
 		buildId = randomBytes(4).toHex();
 		trace('DELIVERY: ${hook.delivery}');
 
@@ -110,24 +125,45 @@ class Robrt {
 	static function main()
 	{
 		haxe.Log.trace = customTrace;
-		if (Web.isModNeko) {
-			if (Web.isTora)
-				Web.cacheModule(main);
+#if nodejs
+		var app = Http.createServer(function (req, res) {
 			buildId = null;
+			trace('${req.method} ${req.url}');
+			var buf = new StringBuf();
+			req.on("data", function (data) buf.add(data));
+			req.on("end", function () {
+				var data = buf.toString();
+				var web = {
+					getClientHeader : function (name) return req.headers[name.toLowerCase()],
+					getPostData : function () return data
+				};
+				var status = execute(web);
+				res.writeHead(status);
+				res.end();
+			});
+		});
+		app.listen(6667);
+#else
+		if (neko.Web.isModNeko) {
+			if (neko.Web.isTora)
+				neko.Web.cacheModule(main);
+			buildId = null;
+			trace('${neko.Web.getMethod()} ${StringTools.lpad(neko.Web.getURI(), "/", 1)}');
 			urandom = sys.io.File.read("/dev/urandom", true);
 			try {
-				var status = execute();
+				var status = execute(neko.Web);
 				trace('return: status $status');
-				Web.setReturnCode(status);
+				neko.Web.setReturnCode(status);
 			} catch (e:Dynamic) {
 				trace("ERROR: uncaught exception");
 				trace('Exception: $e\n${haxe.CallStack.toString(haxe.CallStack.exceptionStack())}');
-				try Web.setReturnCode(500) catch (e:Dynamic) {}
+				try neko.Web.setReturnCode(500) catch (e:Dynamic) {}
 			}
 			urandom.close();
 		} else {
 			readConfig();  // TODO cli interface for validating config files
 		}
+#end
 	}
 }
 

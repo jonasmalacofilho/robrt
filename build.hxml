@@ -1,4 +1,12 @@
--neko robrt.n
 -main Robrt
 -cp src
+
+--each
+
+-js robrt.js
+-lib hxnodejs
+
+--next
+
+-neko robrt.n
 
