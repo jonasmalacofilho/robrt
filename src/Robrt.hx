@@ -48,7 +48,7 @@ class Robrt {
 	static function execute():Int
 	{
 		var config = readConfig();
-		var hook = Incoming.fromWeb();
+		var hook = Incoming.fromWeb(Web);
 		buildId = randomBytes(4).toHex();
 		trace('DELIVERY: ${hook.delivery}');
 

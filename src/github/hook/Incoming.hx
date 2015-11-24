@@ -1,6 +1,5 @@
 package github.hook;
 
-import neko.Web;
 import haxe.crypto.*;
 import haxe.io.Bytes;
 
@@ -10,6 +9,11 @@ typedef Delivery = {
 	repository : BaseRepository,
 	sender : User,
 	event : Event
+}
+
+typedef Web = {
+	function getClientHeader(name:String):String;
+	function getPostData():String;
 }
 
 class Incoming {
@@ -64,15 +68,15 @@ class Incoming {
 		}
 	}
 
-	public static function fromWeb()
+	public static function fromWeb(web:Web)
 	{
 		// TODO check method==POST
-		var delivery = Web.getClientHeader("X-Github-Delivery");
-		var event = Web.getClientHeader("X-Github-Event");
+		var delivery = web.getClientHeader("X-Github-Delivery");
+		var event = web.getClientHeader("X-Github-Event");
 
-		var signature = Web.getClientHeader("X-Hub-Signature").toLowerCase();
+		var signature = web.getClientHeader("X-Hub-Signature").toLowerCase();
 		// TODO deal with content-type==application/x-www-form-urlencoded
-		var payload = Web.getPostData();
+		var payload = web.getPostData();
 
 		return new Incoming(delivery, event, signature, payload);
 	}
