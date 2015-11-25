@@ -1,18 +1,25 @@
 import github.hook.Incoming;
+import js.node.*;
+import js.node.http.*;
 import robrt.Variables;
 import robrt.data.RepoConfig;
 import robrt.data.ServerConfig;
 
-#if nodejs
-import js.node.*;
-import js.node.http.*;
-#end
+/**
+Robrt: a robot that listens to GitHub events and deploys stuff.
 
+Usage:
+  robrt.js listen <port>
+  robrt.js -h | --help
+  robrt.js --version
+
+Environment variables:
+  ROBRT_CONFIG      Alternate path to configuration file
+**/
+@:rtti
 class Robrt {
+	static inline var VERSION = "0.0.1-alpha.1";
 	static var buildId:String;
-#if !nodejs
-	static var urandom:haxe.io.Input;
-#end
 
 	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
@@ -23,11 +30,7 @@ class Robrt {
 			msg = 'Robrt[$buildId]: $msg';
 		else
 			msg = 'Robrt: $msg';
-#if nodejs
 		js.Node.console.log(msg);
-#else
-		Sys.stderr().writeString(msg + "\n");
-#end
 	}
 
 	static function readConfig()
@@ -47,24 +50,11 @@ class Robrt {
 		return ~/^refs\/(heads|tags)\//.replace(ref, "");
 	}
 
-	static function randomBytes(n:Int)
-	{
-#if nodejs
-		return Crypto.randomBytes(n).hxToBytes();
-#else
-		var b = haxe.io.Bytes.alloc(n);
-		var r = 0;
-		while (r < n)
-			r += urandom.readBytes(b, r, (n - r));
-		return b;
-#end
-	}
-
 	static function execute(web:Web):Int
 	{
 		var config = readConfig();
 		var hook = Incoming.fromWeb(web);
-		buildId = randomBytes(4).toHex();
+		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
 		trace('DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
@@ -125,45 +115,36 @@ class Robrt {
 	static function main()
 	{
 		haxe.Log.trace = customTrace;
-#if nodejs
-		var app = Http.createServer(function (req, res) {
-			buildId = null;
-			trace('${req.method} ${req.url}');
-			var buf = new StringBuf();
-			req.on("data", function (data) buf.add(data));
-			req.on("end", function () {
-				var data = buf.toString();
-				var web = {
-					getClientHeader : function (name) return req.headers[name.toLowerCase()],
-					getPostData : function () return data
-				};
-				var status = execute(web);
-				res.writeHead(status);
-				res.end();
+		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
+		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
+
+		if (options["listen"]) {
+
+			var port = Std.parseInt(options["<port>"]);
+			if (port == null || port < 1 || port > 65355)
+				throw 'Invalid port number ${options["<port>"]}';
+
+			var app = Http.createServer(function (req, res) {
+				buildId = null;
+				trace('${req.method} ${req.url}');
+				var buf = new StringBuf();
+				req.on("data", function (data) buf.add(data));
+				req.on("end", function () {
+					var data = buf.toString();
+					var web = {
+						getClientHeader : function (name) return req.headers[name.toLowerCase()],
+						getPostData : function () return data
+					};
+					var status = execute(web);
+					res.writeHead(status);
+					res.end();
+				});
 			});
-		});
-		app.listen(6667);
-#else
-		if (neko.Web.isModNeko) {
-			if (neko.Web.isTora)
-				neko.Web.cacheModule(main);
-			buildId = null;
-			trace('${neko.Web.getMethod()} ${StringTools.lpad(neko.Web.getURI(), "/", 1)}');
-			urandom = sys.io.File.read("/dev/urandom", true);
-			try {
-				var status = execute(neko.Web);
-				trace('return: status $status');
-				neko.Web.setReturnCode(status);
-			} catch (e:Dynamic) {
-				trace("ERROR: uncaught exception");
-				trace('Exception: $e\n${haxe.CallStack.toString(haxe.CallStack.exceptionStack())}');
-				try neko.Web.setReturnCode(500) catch (e:Dynamic) {}
-			}
-			urandom.close();
+			app.listen(port);
+
 		} else {
-			readConfig();  // TODO cli interface for validating config files
+			throw 'Should not have reached this point;\n$options';
 		}
-#end
 	}
 }
 

@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/jonasmalacofilho/robrt/issues"
   },
-  "homepage": "https://github.com/jonasmalacofilho/robrt#readme"
+  "homepage": "https://github.com/jonasmalacofilho/robrt#readme",
+  "dependencies": {
+    "docopt": "^0.6.2"
+  }
 }

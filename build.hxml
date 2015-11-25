@@ -1,12 +1,15 @@
 -main Robrt
 -cp src
+-D use_rtti_doc
 
 --each
 
 -js robrt.js
 -lib hxnodejs
+-lib jmf-npm-externs
 
---next
-
--neko robrt.n
+# disabled during the development of robrt
+# --next
+#
+# -neko robrt.n
 

@@ -1,9 +1,8 @@
 package github.hook;
 
+import github.hook.Event;
 import haxe.crypto.*;
 import haxe.io.Bytes;
-
-import github.hook.Event;
 
 typedef Delivery = {
 	repository : BaseRepository,
