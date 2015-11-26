@@ -10,6 +10,8 @@ typedef Filter = {
 }
 
 typedef BuildOptions = {
+	// base build directory on the server filesystem
+	directory : String,
 	// only build some refs; defaults to all
 	?filter : Filter,
 	// notify this targets
@@ -35,7 +37,7 @@ typedef Repository = {
     ?hook_secret : String,
     // oauth2_token; use to clone private repos and to post commit statuses
     ?oauth2_token : String,
-    // build options; if missing, build will run with sensible defauls
+    // build options; if missing, build will not run
     ?build_options : BuildOptions,
     // export options; if missing, export will not run
     ?export_options : ExportOptions,

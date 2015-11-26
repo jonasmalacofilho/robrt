@@ -17,19 +17,16 @@ Environment variables:
   ROBRT_CONFIG      Alternate path to configuration file
 **/
 @:rtti
-class Robrt {
+class Robrt
+implements com.dongxiguo.continuation.Async {
 	static inline var VERSION = "0.0.1-alpha.1";
-	static var buildId:String;
 
 	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
 		if (p.customParams != null)
 			msg = msg + ',' + p.customParams.join(',');
 		msg = '$msg  @${p.fileName}:${p.lineNumber}';
-		if (buildId != null)
-			msg = 'Robrt[$buildId]: $msg';
-		else
-			msg = 'Robrt: $msg';
+		msg = 'Robrt: $msg';
 		js.Node.console.log(msg);
 	}
 
@@ -50,12 +47,33 @@ class Robrt {
 		return ~/^refs\/(heads|tags)\//.replace(ref, "");
 	}
 
-	static function execute(web:Web):Int
+	static function shEscape(s:String)
+	{
+		return "'" + s + "'";
+	}
+
+	@async static function clone(fullName, dest, branch, head, ?token)
+	{
+		// TODO handle submodules
+		var url = 'https://github.com/$fullName';
+		var cloneUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token@');
+		var err, _, _ = @await ChildProcess.exec('git clone --quiet --branch ${shEscape(branch)} $cloneUrl $dest');
+		if (err != null) return err;
+		if (token != null) {
+			var err, _, _ = @await ChildProcess.exec('git --quiet -C $dest remote set-url origin $url');
+			if (err != null) return err;
+		}
+		var err, _, _ = @await ChildProcess.exec('git -C $dest checkout --quiet --force $head');
+		if (err != null) return err;
+		return null;
+	}
+
+	@async static function execute(web:Web):Int
 	{
 		var config = readConfig();
 		var hook = Incoming.fromWeb(web);
-		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
-		trace('DELIVERY: ${hook.delivery}');
+		var buildId = Crypto.pseudoRandomBytes(4).toString("hex");
+		trace('BUILD-ID: $buildId  DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
 		for (r in config.repositories) {
@@ -83,19 +101,39 @@ class Robrt {
 			// NOOP
 		case GitHubPush(e):
 			var refName = parseRef(e.ref);
+			var status = 202;  // accepted
+
 			if (e.deleted) {
 				trace('action: deleted $refName');
 				// TODO delete
-				return 202;  // accepted
+				return status;  // accepted
 			}
-			if (e.created)
-				trace('action: created $refName');
-			else
-				trace('action: pushed $refName');
+
+			trace('action: ${e.created?"created":"pushed"} $refName');
 			for (repo in candidates) {
-				trace("TODO clone, check, checkout, build and deploy");
-				return 501;
+				trace("starting build");
+
+				if (repo.build_options == null) {
+					trace("nothing to do, no 'build_options'");
+					continue;
+				}
+
+				var buildDir = Path.join(repo.build_options.directory, buildId);
+				var _ = @await js.npm.Remove.remove(buildDir);
+				var err = @await clone(repo.full_name, buildDir, refName, e.head_commit.id, repo.oauth2_token);
+				if (err == null) return 500;
+				trace("TODO read repo conf, prepare and build");
+				status = 501;
+
+				if (repo.export_options == null) {
+					trace("nothing to export, no 'export_options'");
+					if (status < 300)
+						status = 200;
+					continue;
+				}
+				trace("TODO export");
 			}
+			return status;
 		case GitHubPullRequest(e):
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed:
@@ -125,7 +163,6 @@ class Robrt {
 				throw 'Invalid port number ${options["<port>"]}';
 
 			var app = Http.createServer(function (req, res) {
-				buildId = null;
 				trace('${req.method} ${req.url}');
 				var buf = new StringBuf();
 				req.on("data", function (data) buf.add(data));
@@ -135,9 +172,11 @@ class Robrt {
 						getClientHeader : function (name) return req.headers[name.toLowerCase()],
 						getPostData : function () return data
 					};
-					var status = execute(web);
-					res.writeHead(status);
-					res.end();
+					execute(web, function (status) {
+						trace(status);
+						res.writeHead(status);
+						res.end();
+					});
 				});
 			});
 			app.listen(port);

@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/jonasmalacofilho/robrt#readme",
   "dependencies": {
-    "docopt": "^0.6.2"
+    "docopt": "^0.6.2",
+    "remove": "^0.1.5"
   }
 }
