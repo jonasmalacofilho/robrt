@@ -88,6 +88,15 @@ implements com.dongxiguo.continuation.Async {
 		return true;
 	}
 
+	static function getBuildDir(baseBuildDir, id)
+	{
+		var buildDir = Path.join(baseBuildDir, id);
+		// probably there's nothing to remove
+		try js.npm.Remove.removeSync(buildDir, { ignoreMissing : true })
+		catch (e:Dynamic) trace('Warning: $e; kept going');
+		return buildDir;
+	}
+
 	@async static function execute(web:Web):Int
 	{
 		var config = readConfig();
@@ -139,9 +148,10 @@ implements com.dongxiguo.continuation.Async {
 					continue;
 				}
 
-				var buildDir = Path.join(repo.build_options.directory, buildId);
-				var _ = @await js.npm.Remove.remove(buildDir);
-				var ok = @await openRepo(repo.full_name, buildDir, { branch : refName, commit : e.head_commit.id }, repo.oauth2_token);
+				var buildDir = getBuildDir(repo.build_options.directory, buildId);
+
+				var repoDir = Path.join(buildDir, "repository");
+				var ok = @await openRepo(repo.full_name, repoDir, { branch : refName, commit : e.head_commit.id }, repo.oauth2_token);
 				if (!ok)
 					return status = 500;
 
@@ -171,10 +181,10 @@ implements com.dongxiguo.continuation.Async {
 						continue;
 					}
 
-					var buildDir = Path.join(repo.build_options.directory, buildId);
-					var _ = @await js.npm.Remove.remove(buildDir);
+					var buildDir = getBuildDir(repo.build_options.directory, buildId);
 
-					var ok = @await openRepo(repo.full_name, buildDir, { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha }, { number : e.number, commit : e.pull_request.head.sha }, repo.oauth2_token);
+					var repoDir = Path.join(buildDir, "repository");
+					var ok = @await openRepo(repo.full_name, repoDir, { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha }, { number : e.number, commit : e.pull_request.head.sha }, repo.oauth2_token);
 					if (!ok)
 						return status = 500;
 
