@@ -52,20 +52,40 @@ implements com.dongxiguo.continuation.Async {
 		return "'" + s + "'";
 	}
 
-	@async static function clone(fullName, dest, branch, head, ?token)
+	// TODO handle submodules
+	@async static function openRepo(fullName:String, dest:String, base:{ branch:String, commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
 	{
-		// TODO handle submodules
 		var url = 'https://github.com/$fullName';
 		var cloneUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token@');
-		var err, _, _ = @await ChildProcess.exec('git clone --quiet --branch ${shEscape(branch)} $cloneUrl $dest');
-		if (err != null) return err;
-		if (token != null) {
-			var err, _, _ = @await ChildProcess.exec('git --quiet -C $dest remote set-url origin $url');
-			if (err != null) return err;
+
+		// clone and checkout the specified commit
+		// for homegeneity with `pr != null` reset the `base.branch` to `base.commit`
+		// (this ensures that we're not building some more recent version of the branch by accident)
+		var commands = [
+			'git clone --quiet --branch ${shEscape(base.branch)} $cloneUrl $dest',
+			'git -C $dest checkout --quiet --force ${base.commit}',
+			'git -C $dest reset --quiet --hard ${base.commit}'
+		];
+		if (pr != null) {
+			// fetch the pull request head and branch from the specified head commit
+			// (this ensures that we're not building some more recent version of the PR by accident)
+			commands = commands.concat([
+				'git -C $dest fetch --quiet origin pull/${pr.number}/head',
+				'git -C $dest branch --quiet pull/${pr.number}/head ${pr.commit}'
+			]);
 		}
-		var err, _, _ = @await ChildProcess.exec('git -C $dest checkout --quiet --force $head');
-		if (err != null) return err;
-		return null;
+		// cleanup the auth token
+		if (token != null)
+			commands.push('git -C $dest remote set-url origin $url');
+
+		for (cmd in commands) {
+			var err, stdout, stderr = @await ChildProcess.exec(cmd);
+			if (err != null) {
+				trace('ERROR: $err');
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@async static function execute(web:Web):Int
@@ -96,12 +116,13 @@ implements com.dongxiguo.continuation.Async {
 		}
 		trace("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
+		var status = 202;  // accepted
 		switch (delivery.event) {
 		case GitHubPing(e):
-			// NOOP
+			// done
+			status = 200;
 		case GitHubPush(e):
 			var refName = parseRef(e.ref);
-			var status = 202;  // accepted
 
 			if (e.deleted) {
 				trace('action: deleted $refName');
@@ -120,8 +141,10 @@ implements com.dongxiguo.continuation.Async {
 
 				var buildDir = Path.join(repo.build_options.directory, buildId);
 				var _ = @await js.npm.Remove.remove(buildDir);
-				var err = @await clone(repo.full_name, buildDir, refName, e.head_commit.id, repo.oauth2_token);
-				if (err == null) return 500;
+				var ok = @await openRepo(repo.full_name, buildDir, { branch : refName, commit : e.head_commit.id }, repo.oauth2_token);
+				if (!ok)
+					return status = 500;
+
 				trace("TODO read repo conf, prepare and build");
 				status = 501;
 
@@ -133,21 +156,43 @@ implements com.dongxiguo.continuation.Async {
 				}
 				trace("TODO export");
 			}
-			return status;
 		case GitHubPullRequest(e):
+			var status = 202;  // accepted
 			switch (e.action) {
-			case Assigned, Unassigned, Labeled, Unlabeled, Closed:
-				return 202;
-			case _:  // nothing
-			}
-			trace('base: ${e.pull_request.base.ref}');
-			trace('head: ${e.pull_request.head.ref}');
-			for (repo in candidates) {
-				trace("TODO clone, check, checkout, merge , build and deploy");
-				return 501;
+			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
+			case Opened, Synchronize, Reopened:
+				trace('base: ${e.pull_request.base.ref}');
+				trace('head: ${e.pull_request.head.ref}');
+				for (repo in candidates) {
+					trace("starting build");
+
+					if (repo.build_options == null) {
+						trace("nothing to do, no 'build_options'");
+						continue;
+					}
+
+					var buildDir = Path.join(repo.build_options.directory, buildId);
+					var _ = @await js.npm.Remove.remove(buildDir);
+
+					var ok = @await openRepo(repo.full_name, buildDir, { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha }, { number : e.number, commit : e.pull_request.head.sha }, repo.oauth2_token);
+					if (!ok)
+						return status = 500;
+
+					trace("TODO check if merge was clean");
+					trace("TODO read repo conf, prepare and build");
+					status = 501;
+
+					if (repo.export_options == null) {
+						trace("nothing to export, no 'export_options'");
+						if (status < 300)
+							status = 200;
+						continue;
+					}
+					trace("TODO export");
+				}
 			}
 		}
-		return 200;
+		return status;
 	}
 
 	static function main()

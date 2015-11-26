@@ -76,7 +76,7 @@ typedef Commit = {
 
 typedef Head = {
 	label : String,
-	ref : String,
+	ref : String,  // simple ref name
 	sha : String,
 	user : User,
 	repo : CommonRepository
@@ -143,7 +143,7 @@ typedef PingEvent = {
 }
 
 typedef PushEvent = {
-	ref : String,
+	ref : String,  // full ref name
 	before : String,
 	after : String,
 	created : Bool,
