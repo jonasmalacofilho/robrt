@@ -21,13 +21,13 @@ class Robrt
 implements com.dongxiguo.continuation.Async {
 	static inline var VERSION = "0.0.1-alpha.1";
 
-	static function log(msg:Dynamic, ?buildId:String, ?p:haxe.PosInfos)
+	var buildId:String;
+
+	static function ctrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
 		if (p.customParams != null)
 			msg = msg + ',' + p.customParams.join(',');
 		msg = '$msg  @${p.fileName}:${p.lineNumber}';
-		if (buildId != null)
-			msg = '[$buildId] $msg';
 		js.Node.console.log(msg);
 	}
 
@@ -53,8 +53,13 @@ implements com.dongxiguo.continuation.Async {
 		return "'" + s + "'";
 	}
 
+	function log(msg:Dynamic, ?p:haxe.PosInfos)
+	{
+		ctrace('[$buildId] $msg', p);
+	}
+
 	// TODO handle submodules
-	@async static function openRepo(fullName:String, dest:String, base:{ branch:String, commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
+	@async function openRepo(fullName:String, dest:String, base:{ branch:String, commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
 	{
 		var url = 'https://github.com/$fullName';
 		var cloneUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token@');
@@ -82,28 +87,27 @@ implements com.dongxiguo.continuation.Async {
 		for (cmd in commands) {
 			var err, stdout, stderr = @await ChildProcess.exec(cmd);
 			if (err != null) {
-				trace('ERROR: $err');
+				log('ERROR: $err');
 				return false;
 			}
 		}
 		return true;
 	}
 
-	static function getBuildDir(baseBuildDir, id)
+	function getBuildDir(baseBuildDir, id)
 	{
 		var buildDir = Path.join(baseBuildDir, id);
 		// probably there's nothing to remove
 		try js.npm.Remove.removeSync(buildDir, { ignoreMissing : true })
-		catch (e:Dynamic) trace('Warning: $e; kept going');
+		catch (e:Dynamic) log('Warning: $e; kept going');
 		return buildDir;
 	}
 
-	@async static function execute(web:Web):Int
+	@async function execute(web:Web):Int
 	{
 		var config = readConfig();
 		var hook = Incoming.fromWeb(web);
-		var buildId = Crypto.pseudoRandomBytes(4).toString("hex");
-		trace('BUILD-ID: $buildId  DELIVERY: ${hook.delivery}');
+		log('DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
 		for (r in config.repositories) {
@@ -111,20 +115,20 @@ implements com.dongxiguo.continuation.Async {
 				candidates.push(r);
 		}
 		if (candidates.length == 0) {
-			trace("no signature matches");
+			log("no signature matches");
 			return 404;
 		}
 
 		var delivery = hook.parse();
-		trace('repository: ${delivery.repository.full_name}');
-		trace('event: ${Type.enumConstructor(delivery.event)}');
+		log('repository: ${delivery.repository.full_name}');
+		log('event: ${Type.enumConstructor(delivery.event)}');
 
 		candidates = candidates.filter(function (r) return r.full_name == delivery.repository.full_name);
 		if (candidates.length == 0) {
-			trace("no repository matches");
+			log("no repository matches");
 			return 404;
 		}
-		trace("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
+		log("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
 		var status = 202;  // accepted
 		switch (delivery.event) {
@@ -135,17 +139,17 @@ implements com.dongxiguo.continuation.Async {
 			var refName = parseRef(e.ref);
 
 			if (e.deleted) {
-				trace('action: deleted $refName');
+				log('action: deleted $refName');
 				// TODO delete
 				return status;  // accepted
 			}
 
-			trace('action: ${e.created?"created":"pushed"} $refName');
+			log('action: ${e.created?"created":"pushed"} $refName');
 			for (repo in candidates) {
-				trace("starting build");
+				log("starting build");
 
 				if (repo.build_options == null) {
-					trace("nothing to do, no 'build_options'");
+					log("nothing to do, no 'build_options'");
 					continue;
 				}
 
@@ -156,29 +160,29 @@ implements com.dongxiguo.continuation.Async {
 				if (!ok)
 					return status = 500;
 
-				trace("TODO read repo conf, prepare and build");
+				log("TODO read repo conf, prepare and build");
 				status = 501;
 
 				if (repo.export_options == null) {
-					trace("nothing to export, no 'export_options'");
+					log("nothing to export, no 'export_options'");
 					if (status < 300)
 						status = 200;
 					continue;
 				}
-				trace("TODO export");
+				log("TODO export");
 			}
 		case GitHubPullRequest(e):
 			var status = 202;  // accepted
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
 			case Opened, Synchronize, Reopened:
-				trace('base: ${e.pull_request.base.ref}');
-				trace('head: ${e.pull_request.head.ref}');
+				log('base: ${e.pull_request.base.ref}');
+				log('head: ${e.pull_request.head.ref}');
 				for (repo in candidates) {
-					trace("starting build");
+					log("starting build");
 
 					if (repo.build_options == null) {
-						trace("nothing to do, no 'build_options'");
+						log("nothing to do, no 'build_options'");
 						continue;
 					}
 
@@ -189,26 +193,31 @@ implements com.dongxiguo.continuation.Async {
 					if (!ok)
 						return status = 500;
 
-					trace("TODO check if merge was clean");
-					trace("TODO read repo conf, prepare and build");
+					log("TODO check if merge was clean");
+					log("TODO read repo conf, prepare and build");
 					status = 501;
 
 					if (repo.export_options == null) {
-						trace("nothing to export, no 'export_options'");
+						log("nothing to export, no 'export_options'");
 						if (status < 300)
 							status = 200;
 						continue;
 					}
-					trace("TODO export");
+					log("TODO export");
 				}
 			}
 		}
 		return status;
 	}
 
+	function new()
+	{
+		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
+	}
+
 	static function main()
 	{
-		haxe.Log.trace = function (msg, ?pos) log(msg, null, pos);
+		haxe.Log.trace = ctrace;
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
@@ -219,7 +228,8 @@ implements com.dongxiguo.continuation.Async {
 				throw 'Invalid port number ${options["<port>"]}';
 
 			var app = Http.createServer(function (req, res) {
-				trace('${req.method} ${req.url}');
+				var r = new Robrt();
+				trace('# ${req.method} ${req.url} -> [${r.buildId}]');
 				var buf = new StringBuf();
 				req.on("data", function (data) buf.add(data));
 				req.on("end", function () {
@@ -228,8 +238,8 @@ implements com.dongxiguo.continuation.Async {
 						getClientHeader : function (name) return req.headers[name.toLowerCase()],
 						getPostData : function () return data
 					};
-					execute(web, function (status) {
-						trace(status);
+					r.execute(web, function (status) {
+						r.log('Returnig $status');
 						res.writeHead(status);
 						res.end();
 					});
