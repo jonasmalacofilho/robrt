@@ -21,12 +21,13 @@ class Robrt
 implements com.dongxiguo.continuation.Async {
 	static inline var VERSION = "0.0.1-alpha.1";
 
-	static function customTrace(msg:Dynamic, ?p:haxe.PosInfos)
+	static function log(msg:Dynamic, ?buildId:String, ?p:haxe.PosInfos)
 	{
 		if (p.customParams != null)
 			msg = msg + ',' + p.customParams.join(',');
 		msg = '$msg  @${p.fileName}:${p.lineNumber}';
-		msg = 'Robrt: $msg';
+		if (buildId != null)
+			msg = '[$buildId] $msg';
 		js.Node.console.log(msg);
 	}
 
@@ -207,7 +208,7 @@ implements com.dongxiguo.continuation.Async {
 
 	static function main()
 	{
-		haxe.Log.trace = customTrace;
+		haxe.Log.trace = function (msg, ?pos) log(msg, null, pos);
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
