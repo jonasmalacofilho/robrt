@@ -135,21 +135,18 @@ implements com.dongxiguo.continuation.Async {
 		}
 		log("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
-		var status = 202;  // accepted
 		switch (delivery.event) {
-		case GitHubPing(e):
-			// done
-			status = 200;
+		case GitHubPing(e):  // done, NOOP
 		case GitHubPush(e):
-			var refName = parseRef(e.ref);
+			var branch = parseRef(e.ref);
 
 			if (e.deleted) {
-				log('action: deleted $refName');
+				log('action: deleted $branch');
 				// TODO delete
-				return status;  // accepted
+				return 204;
 			}
 
-			log('action: ${e.created?"created":"pushed"} $refName');
+			log('action: ${e.created?"created":"pushed"} $branch');
 			for (repo in candidates) {
 				log("starting build");
 
@@ -158,7 +155,7 @@ implements com.dongxiguo.continuation.Async {
 					continue;
 				} else if (repo.build_options.filter != null
 						&& repo.build_options.filter.refs != null
-						&& !Lambda.has(repo.build_options.filter.refs, refName)) {
+						&& !Lambda.has(repo.build_options.filter.refs, branch)) {
 					log("branch filtered out from building");
 					continue;
 				}
@@ -166,28 +163,25 @@ implements com.dongxiguo.continuation.Async {
 				var buildDir = getBuildDir(repo.build_options.directory, buildId);
 
 				var repoDir = Path.join(buildDir, "repository");
-				var ok = @await openRepo(repo.full_name, repoDir, { branch : refName, commit : e.head_commit.id }, repo.oauth2_token);
+				var ok = @await openRepo(repo.full_name, repoDir, { branch : branch, commit : e.head_commit.id }, repo.oauth2_token);
 				if (!ok)
-					return status = 500;
+					return 500;
 
 				log("TODO read repo conf, prepare and build");
-				status = 501;
+				return 501;
 
 				if (repo.export_options == null) {
 					log("nothing to export, no 'export_options'");
-					if (status < 300)
-						status = 200;
 					continue;
 				} else if (repo.export_options.filter != null
 						&& repo.export_options.filter.refs != null
-						&& !Lambda.has(repo.export_options.filter.refs, refName)) {
+						&& !Lambda.has(repo.export_options.filter.refs, branch)) {
 					log("branch filtered out from exporting");
 					continue;
 				}
 				log("TODO export");
 			}
 		case GitHubPullRequest(e):
-			var status = 202;  // accepted
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
 			case Opened, Synchronize, Reopened:
@@ -211,16 +205,14 @@ implements com.dongxiguo.continuation.Async {
 					var repoDir = Path.join(buildDir, "repository");
 					var ok = @await openRepo(repo.full_name, repoDir, { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha }, { number : e.number, commit : e.pull_request.head.sha }, repo.oauth2_token);
 					if (!ok)
-						return status = 500;
+						return 500;
 
 					log("TODO check if merge was clean");
 					log("TODO read repo conf, prepare and build");
-					status = 501;
+					return 501;
 
 					if (repo.export_options == null) {
 						log("nothing to export, no 'export_options'");
-						if (status < 300)
-							status = 200;
 						continue;
 					} else if (repo.export_options.filter != null
 							&& repo.export_options.filter.pull_requests != null
@@ -232,7 +224,7 @@ implements com.dongxiguo.continuation.Async {
 				}
 			}
 		}
-		return status;
+		return 204;
 	}
 
 	function new(config)
