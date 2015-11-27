@@ -248,7 +248,7 @@ implements com.dongxiguo.continuation.Async {
 						getPostData : function () return data
 					};
 					r.execute(web, function (status) {
-						r.log('Returnig $status');
+						r.log('Returnig $status (${Http.STATUS_CODES.get(Std.string(status))})');
 						res.writeHead(status);
 						res.end();
 					});
