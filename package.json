@@ -22,5 +22,9 @@
   "dependencies": {
     "docopt": "^0.6.2",
     "remove": "^0.1.5"
+  },
+  "scripts": {
+	"prepublish" : "[ \"$npm_config_dev\" = \"true\" ] && exit 0; echo '=> Compiling (Haxe -> JS)'; haxe build.hxml"
   }
 }
+

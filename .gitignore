@@ -1,2 +1,6 @@
-*.n
-*.js
+node_modules
+npm-debug.log
+robrt*.tgz
+robrt.js
+robrt.n
+
