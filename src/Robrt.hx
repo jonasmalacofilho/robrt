@@ -269,7 +269,7 @@ implements com.dongxiguo.continuation.Async {
 					trace('Succeded in shutting down the HTTP server; exiting now with code $code');
 					js.Node.process.exit(code);
 				});
-				server.close();
+				server.close();  // FIXME not really waiting for all responses to finish
 			}
 			js.Node.process.on("SIGINT", controledExit.bind("SIGINT"));
 			js.Node.process.on("SIGTERM", controledExit.bind("SIGTERM"));
