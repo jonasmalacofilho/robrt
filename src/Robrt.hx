@@ -156,6 +156,11 @@ implements com.dongxiguo.continuation.Async {
 				if (repo.build_options == null) {
 					log("nothing to do, no 'build_options'");
 					continue;
+				} else if (repo.build_options.filter != null
+						&& repo.build_options.filter.refs != null
+						&& !Lambda.has(repo.build_options.filter.refs, refName)) {
+					log("branch filtered out from building");
+					continue;
 				}
 
 				var buildDir = getBuildDir(repo.build_options.directory, buildId);
@@ -173,6 +178,11 @@ implements com.dongxiguo.continuation.Async {
 					if (status < 300)
 						status = 200;
 					continue;
+				} else if (repo.export_options.filter != null
+						&& repo.export_options.filter.refs != null
+						&& !Lambda.has(repo.export_options.filter.refs, refName)) {
+					log("branch filtered out from exporting");
+					continue;
 				}
 				log("TODO export");
 			}
@@ -188,6 +198,11 @@ implements com.dongxiguo.continuation.Async {
 
 					if (repo.build_options == null) {
 						log("nothing to do, no 'build_options'");
+						continue;
+					} else if (repo.build_options.filter != null
+							&& repo.build_options.filter.pull_requests != null
+							&& !repo.build_options.filter.pull_requests) {
+						log("building pull requests is disabled");
 						continue;
 					}
 
@@ -206,6 +221,11 @@ implements com.dongxiguo.continuation.Async {
 						log("nothing to export, no 'export_options'");
 						if (status < 300)
 							status = 200;
+						continue;
+					} else if (repo.export_options.filter != null
+							&& repo.export_options.filter.pull_requests != null
+							&& !repo.export_options.filter.pull_requests) {
+						log("exporting of pull request build results is disabled");
 						continue;
 					}
 					log("TODO export");
