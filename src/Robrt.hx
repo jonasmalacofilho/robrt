@@ -26,10 +26,11 @@ implements com.dongxiguo.continuation.Async {
 
 	static function ctrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
+		var lines = StringTools.rtrim(msg).split("\n");
+		lines[0] += '  @${p.className}.${p.methodName}(${p.fileName}:${p.lineNumber})';
 		if (p.customParams != null)
-			msg = msg + ',' + p.customParams.join(',');
-		msg = '$msg  @${p.fileName}:${p.lineNumber}';
-		js.Node.console.log(msg);
+			lines[lines.length - 1] += ': ' + p.customParams.join(',');
+		js.Node.console.log(lines.join("\n..."));
 	}
 
 	static function readConfig()
@@ -89,10 +90,9 @@ implements com.dongxiguo.continuation.Async {
 			commands.push('git -C $dest remote set-url origin $url');
 
 		for (cmd in commands) {
-			log('executing: $cmd');
 			var err, stdout, stderr = @await ChildProcess.exec(cmd);
 			if (err != null) {
-				log('ERROR: $err');
+				log('ERR: $err');
 				return false;
 			}
 		}
@@ -222,7 +222,7 @@ implements com.dongxiguo.continuation.Async {
 
 	static function main()
 	{
-		haxe.Log.trace = function (msg, ?p) ctrace('* $msg', p);
+		haxe.Log.trace = function (msg, ?p) ctrace(' * $msg', p);
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
