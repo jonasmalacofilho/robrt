@@ -22,6 +22,7 @@ implements com.dongxiguo.continuation.Async {
 	static inline var VERSION = "0.0.1-alpha.1";
 
 	var buildId:String;
+	var config:ServerConfig;
 
 	static function ctrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
@@ -38,6 +39,7 @@ implements com.dongxiguo.continuation.Async {
 			path = "/etc/robrt.json";
 		if (!sys.FileSystem.exists(path) || sys.FileSystem.isDirectory(path))
 			throw 'Invalid config path: $path';
+		trace('Reading config file from $path');
 		var data = haxe.Json.parse(sys.io.File.getContent(path));
 		// TODO validate data
 		return (data:ServerConfig);
@@ -105,7 +107,6 @@ implements com.dongxiguo.continuation.Async {
 
 	@async function execute(web:Web):Int
 	{
-		var config = readConfig();
 		var hook = Incoming.fromWeb(web);
 		log('DELIVERY: ${hook.delivery}');
 
@@ -210,25 +211,30 @@ implements com.dongxiguo.continuation.Async {
 		return status;
 	}
 
-	function new()
+	function new(config)
 	{
 		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
+		this.config = config;
 	}
 
 	static function main()
 	{
-		haxe.Log.trace = function (msg, ?p) ctrace('# $msg', p);
+		haxe.Log.trace = function (msg, ?p) ctrace('* $msg', p);
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
-		if (options["listen"]) {
+		trace("Starting");
 
+		// safer to force a restart of the server before reloading new configs
+		var config = readConfig();
+
+		if (options["listen"]) {
 			var port = Std.parseInt(options["<port>"]);
 			if (port == null || port < 1 || port > 65355)
 				throw 'Invalid port number ${options["<port>"]}';
 
 			var server = Http.createServer(function (req, res) {
-				var r = new Robrt();
+				var r = new Robrt(config);
 				trace('${req.method} ${req.url} -> [${r.buildId}]');
 				var buf = new StringBuf();
 				req.on("data", function (data) buf.add(data));
@@ -267,6 +273,7 @@ implements com.dongxiguo.continuation.Async {
 			js.Node.process.on("SIGUSR2", controledExit.bind("SIGUSR2"));
 
 			server.listen(port);
+			trace('Listening on port $port');
 		} else {
 			throw 'Should not have reached this point;\n$options';
 		}
