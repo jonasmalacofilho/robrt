@@ -163,7 +163,8 @@ implements com.dongxiguo.continuation.Async {
 				var buildDir = getBuildDir(repo.build_options.directory, buildId);
 
 				var repoDir = Path.join(buildDir, "repository");
-				var ok = @await openRepo(repo.full_name, repoDir, { branch : branch, commit : e.head_commit.id }, repo.oauth2_token);
+				var b = { branch : branch, commit : e.head_commit.id };
+				var ok = @await openRepo(repo.full_name, repoDir, b, repo.oauth2_token);
 				if (!ok)
 					return 500;
 
@@ -203,7 +204,9 @@ implements com.dongxiguo.continuation.Async {
 					var buildDir = getBuildDir(repo.build_options.directory, buildId);
 
 					var repoDir = Path.join(buildDir, "repository");
-					var ok = @await openRepo(repo.full_name, repoDir, { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha }, { number : e.number, commit : e.pull_request.head.sha }, repo.oauth2_token);
+					var b = { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha };
+					var p = { number : e.number, commit : e.pull_request.head.sha };
+					var ok = @await openRepo(repo.full_name, repoDir, b, p, repo.oauth2_token);
 					if (!ok)
 						return 500;
 
