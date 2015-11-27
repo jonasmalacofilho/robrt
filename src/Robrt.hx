@@ -217,7 +217,7 @@ implements com.dongxiguo.continuation.Async {
 
 	static function main()
 	{
-		haxe.Log.trace = ctrace;
+		haxe.Log.trace = function (msg, ?p) ctrace('# $msg', p);
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
@@ -227,9 +227,9 @@ implements com.dongxiguo.continuation.Async {
 			if (port == null || port < 1 || port > 65355)
 				throw 'Invalid port number ${options["<port>"]}';
 
-			var app = Http.createServer(function (req, res) {
+			var server = Http.createServer(function (req, res) {
 				var r = new Robrt();
-				trace('# ${req.method} ${req.url} -> [${r.buildId}]');
+				trace('${req.method} ${req.url} -> [${r.buildId}]');
 				var buf = new StringBuf();
 				req.on("data", function (data) buf.add(data));
 				req.on("end", function () {
@@ -245,8 +245,28 @@ implements com.dongxiguo.continuation.Async {
 					});
 				});
 			});
-			app.listen(port);
 
+			// handle exit from some signals
+			function controledExit(signal:String)
+			{
+				var code = 128 + switch (signal) {
+				case "SIGINT": 2;
+				case "SIGTERM": 15;
+				case "SIGUSR2": 12;  // nodemon uses this to restart
+				case _: 0;  // ?
+				}
+				trace('Trying a controled shutdown after signal $signal');
+				server.on("close", function () {
+					trace('Succeded in shutting down the HTTP server; exiting now with code $code');
+					js.Node.process.exit(code);
+				});
+				server.close();
+			}
+			js.Node.process.on("SIGINT", controledExit.bind("SIGINT"));
+			js.Node.process.on("SIGTERM", controledExit.bind("SIGTERM"));
+			js.Node.process.on("SIGUSR2", controledExit.bind("SIGUSR2"));
+
+			server.listen(port);
 		} else {
 			throw 'Should not have reached this point;\n$options';
 		}
