@@ -61,16 +61,18 @@ implements com.dongxiguo.continuation.Async {
 	}
 
 	// TODO handle submodules
+	// TODO prevent git_terminal_prompt to /dev/tty (might be related to GIT_TERMINAL_PROMPT)
 	@async function openRepo(fullName:String, dest:String, base:{ branch:String, commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
 	{
 		var url = 'https://github.com/$fullName';
-		var cloneUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token@');
+		// $token would sufice, but $token:$token prevents git from asking for a password on /dev/tty
+		var authUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token:$token@');
 
 		// clone and checkout the specified commit
 		// for homegeneity with `pr != null` reset the `base.branch` to `base.commit`
 		// (this ensures that we're not building some more recent version of the branch by accident)
 		var commands = [
-			'git clone --quiet --branch ${shEscape(base.branch)} $cloneUrl $dest',
+			'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest',
 			'git -C $dest checkout --quiet --force ${base.commit}',
 			'git -C $dest reset --quiet --hard ${base.commit}'
 		];
@@ -87,6 +89,7 @@ implements com.dongxiguo.continuation.Async {
 			commands.push('git -C $dest remote set-url origin $url');
 
 		for (cmd in commands) {
+			log('executing: $cmd');
 			var err, stdout, stderr = @await ChildProcess.exec(cmd);
 			if (err != null) {
 				log('ERROR: $err');
