@@ -92,7 +92,7 @@ implements com.dongxiguo.continuation.Async {
 		for (cmd in commands) {
 			var err, stdout, stderr = @await ChildProcess.exec(cmd);
 			if (err != null) {
-				log('ERR: $err');
+				log('ERR: ${StringTools.replace(err.message, token, "******")}');
 				return false;
 			}
 		}
