@@ -117,6 +117,9 @@ class Robrt {
 			log('Failure to interpret: $e');
 			null;
 		}
+		// TODO try to return a more informative status, such as 400
+		// (missing header, bad json), 405 (method not allowed), 415
+		// (bad content-type) or 500 (other reasons)
 		if (hook == null)
 			return 500;
 
