@@ -111,7 +111,15 @@ class Robrt {
 
 	@async function execute(web:Web):Int
 	{
-		var hook = Incoming.fromWeb(web);
+		var hook = try {
+			Incoming.fromWeb(web);
+		} catch (e:Dynamic) {
+			log('Failure to interpret: $e');
+			null;
+		}
+		if (hook == null)
+			return 500;
+
 		log('DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
