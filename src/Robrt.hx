@@ -269,6 +269,7 @@ class Robrt {
 					var data = buf.toString();
 					var web = {
 						getClientHeader : function (name) return req.headers[name.toLowerCase()],
+						getMethod : function () return req.method,
 						getPostData : function () return data
 					};
 					r.execute(web, function (status) {

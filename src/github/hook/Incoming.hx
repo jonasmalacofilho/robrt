@@ -12,6 +12,7 @@ typedef Delivery = {
 
 typedef Web = {
 	function getClientHeader(name:String):String;
+	function getMethod():String;
 	function getPostData():String;
 }
 
@@ -22,7 +23,7 @@ class Incoming {
 
 	public var delivery(default,null):String;
 
-	function new(delivery, event, signature, payload)
+	function new(delivery, event, signature:Null<String>, payload)
 	{
 		this.delivery = delivery;
 		this.event = event;
@@ -43,8 +44,9 @@ class Incoming {
 
 	public function verify(secret:String)
 	{
-		if (!StringTools.startsWith(signature, "sha1="))
-			throw 'Unsupported hash algorithm in signature';
+		trace(signature);
+		if (signature == null || !StringTools.startsWith(signature, "sha1="))
+			return false;
 		var sig = signature.substr("sha1=".length);
 		var hmac = new Hmac(SHA1).make(Bytes.ofString(secret), Bytes.ofString(payload));
 		return safeCompare(hmac.toHex(), sig);
@@ -69,15 +71,24 @@ class Incoming {
 
 	public static function fromWeb(web:Web)
 	{
-		// TODO check method==POST
+		if (web.getMethod() != "POST")
+			throw 'Method should be POST, not ${web.getMethod()}';
+		
 		var delivery = web.getClientHeader("X-Github-Delivery");
 		var event = web.getClientHeader("X-Github-Event");
+		var signature = web.getClientHeader("X-Hub-Signature");
 
-		var signature = web.getClientHeader("X-Hub-Signature").toLowerCase();
+		if (delivery == null || event == null)
+			throw 'Missing one or more of required headers X-Github-Delivery and X-Github-Event';
+
 		// TODO deal with content-type==application/x-www-form-urlencoded
+		var contentType = web.getClientHeader("Content-Type");
+		if (contentType != "application/json")
+			throw 'Missing "Content-Type" header, or value other than "application/json" unsupported';
+
 		var payload = web.getPostData();
 
-		return new Incoming(delivery, event, signature, payload);
+		return new Incoming(delivery, event, signature != null ? signature.toLowerCase() : null, payload);
 	}
 }
 
