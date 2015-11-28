@@ -17,8 +17,8 @@ Environment variables:
   ROBRT_CONFIG      Alternate path to configuration file
 **/
 @:rtti
-class Robrt
-implements com.dongxiguo.continuation.Async {
+@:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
+class Robrt {
 	static inline var VERSION = "0.0.1-alpha.1";
 
 	var buildId:String;
