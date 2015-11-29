@@ -33,7 +33,7 @@ class Robrt {
 		js.Node.console.log(lines.join("\n..."));
 	}
 
-	static function readConfig()
+	static function readServerConfig()
 	{
 		var path = Sys.getEnv(ServerVariables.ConfigPath);
 		if (path == null)
@@ -46,7 +46,7 @@ class Robrt {
 		return (data:ServerConfig);
 	}
 
-	static function parseRef(ref:String)
+	static function parsePushRef(ref:String)
 	{
 		return ~/^refs\/(heads|tags)\//.replace(ref, "");
 	}
@@ -100,6 +100,29 @@ class Robrt {
 		return true;
 	}
 
+	function readRepoConfig(repoDir:String):Null<RepoConfig>
+	{
+		// TODO make it async (requires fixed sync try/catch handling on haxe-continuation);
+		// for this it is necessary to store context for Context.typeof or abandon that method
+		// of choosing how to transform ETry expressions
+		var confData = Fs.readFileSync(repoDir, "utf8");
+		return haxe.Json.parse(confData);
+	}
+
+	@async function prepare(repoDir:String)
+	{
+		var conf = try {
+			readRepoConfig(repoDir);
+		} catch (e:Dynamic) {
+			log('Could not read .robrt.json in the repository ($e)');
+			return null;
+		}
+
+		// prepare image
+		// build image
+		return null;
+	}
+
 	function getBuildDir(baseBuildDir, id)
 	{
 		var buildDir = Path.join(baseBuildDir, id);
@@ -147,7 +170,7 @@ class Robrt {
 		switch (delivery.event) {
 		case GitHubPing(e):  // done, NOOP
 		case GitHubPush(e):
-			var branch = parseRef(e.ref);
+			var branch = parsePushRef(e.ref);
 
 			if (e.deleted) {
 				log('action: deleted $branch');
@@ -177,8 +200,10 @@ class Robrt {
 				if (!ok)
 					return 500;
 
-				log("TODO read repo conf, prepare and build");
+				log("TODO prepare");
 				return 501;
+
+				log("TODO build");
 
 				if (repo.export_options == null) {
 					log("nothing to export, no 'export_options'");
@@ -219,9 +244,11 @@ class Robrt {
 					if (!ok)
 						return 500;
 
-					log("TODO check if merge was clean");
-					log("TODO read repo conf, prepare and build");
+					log("TODO merge");
 					return 501;
+
+					log("TODO prepare");
+					log("TODO build");
 
 					if (repo.export_options == null) {
 						log("nothing to export, no 'export_options'");
@@ -254,7 +281,7 @@ class Robrt {
 		trace("Starting");
 
 		// safer to force a restart of the server before reloading new configs
-		var config = readConfig();
+		var config = readServerConfig();
 
 		if (options["listen"]) {
 			var port = Std.parseInt(options["<port>"]);
