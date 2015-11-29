@@ -44,7 +44,6 @@ class Incoming {
 
 	public function verify(secret:String)
 	{
-		trace(signature);
 		if (signature == null || !StringTools.startsWith(signature, "sha1="))
 			return false;
 		var sig = signature.substr("sha1=".length);
@@ -73,7 +72,7 @@ class Incoming {
 	{
 		if (web.getMethod() != "POST")
 			throw 'Method should be POST, not ${web.getMethod()}';
-		
+
 		var delivery = web.getClientHeader("X-Github-Delivery");
 		var event = web.getClientHeader("X-Github-Event");
 		var signature = web.getClientHeader("X-Hub-Signature");
