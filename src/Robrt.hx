@@ -161,7 +161,7 @@ class Robrt {
 		if (err != null)
 			return err;
 
-		var err, stdout, stderr = @await ChildProcess.exec('tar --file $dest --create $tdest/*');
+		var err, stdout, stderr = @await ChildProcess.exec('tar --create --file $dest --directory $tdest .');
 		if (err != null)
 			return err;
 		return null;
@@ -265,6 +265,7 @@ class Robrt {
 					return 500;
 
 				log("TODO build");
+				return 501;
 
 				if (repo.export_options == null) {
 					log("nothing to export, no 'export_options'");
