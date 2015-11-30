@@ -1,0 +1,23 @@
+{
+	"prepare" : {
+		"dockerfile" : {
+			"type" : "path",
+			"data" : "doc/robrt.dockerfile"
+		}
+	},
+	"build" : {
+		"cmds" : [
+			"cd $ROBRT_REPOSITORY_DIR",
+			"docs/install-haxelibs",
+			"npm install --dev package.json",
+			"npm pack"
+		]
+	},
+	"export" : {
+		"cmds" : [
+			"cd $ROBRT_REPOSITORY_DIR",
+			"cp *.tgz $ROBRT_OUTPUT_DIR/robrt.tgz"
+		]
+	}
+}
+
