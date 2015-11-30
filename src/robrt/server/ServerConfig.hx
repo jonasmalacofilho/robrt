@@ -1,4 +1,4 @@
-package robrt.data;
+package robrt.server;
 
 /**
   Notification events.
