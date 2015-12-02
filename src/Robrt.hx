@@ -214,9 +214,9 @@ class Robrt {
 			return null;
 		}
 
-		var imageName = 'robrt-builds:$name';
+		var imageName = 'robrt-builds:$name:$buildId';
 		var err = @await buildImage(buildDir.file.docker_build, {
-			t : ['$imageName:$buildId', '$imageName:latest'],
+			t : imageName,
 			q : true,
 			rm : false,
 			pull : refresh,
@@ -230,7 +230,7 @@ class Robrt {
 		var repoDir = "/robrt/repository";
 		var expDir = "/robrt/export";
 		var err, container = @await docker.createContainer({
-			Image : '$imageName:$buildId',
+			Image : imageName,
 			Env : [
 				'$RepoPath=$repoDir',
 				'$OutPath=$expDir'
