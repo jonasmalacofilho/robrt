@@ -165,7 +165,11 @@ class Robrt {
 		case InlineFile:
 			err = @await Fs.writeFile(dest, file.data);
 		case PathToFile:
-			err = @await copyFile(Path.join(repoDir, file.data), dest);
+			var src = Path.normalize(file.data);
+			if (src.indexOf("..") > 0)
+				return new js.Error('EVIL path: ${file.data} (normalizes to $src)');
+			// TODO check for evil symlinks too
+			err = @await copyFile(Path.join(repoDir, src), dest);
 		}
 		return err;
 	}
