@@ -53,7 +53,7 @@ class Robrt {
 		trace("Starting");
 
 		var config = readServerConfig();
-		var handler = robrt.RequestHandler.handleRequest.bind(config);
+		var handler = robrt.IncomingRequest.handleRequest.bind(config);
 
 		if (options["listen"]) {
 			var port = Std.parseInt(options["<port>"]);
