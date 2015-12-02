@@ -131,7 +131,7 @@ class Build {
 		return err;
 	}
 
-	@async function prepareDockerBuild(buildDir:BuildDir, opts:robrt.repository.PrepareOptions)
+	@async function prepareDockerBuild(opts:robrt.repository.PrepareOptions)
 	{
 		var dest = buildDir.file.docker_build;
 		var tdest = dest + ".contents";
@@ -167,9 +167,9 @@ class Build {
 		docker.buildImage(image, opts, cb);
 	}
 
-	@async function prepareContainer(repoConf, buildDir:BuildDir, name:String, refresh:Bool):Container
+	@async function prepareContainer(name:String, refresh:Bool):Container
 	{
-		var err = @await prepareDockerBuild(buildDir, repoConf.prepare);
+		var err = @await prepareDockerBuild(repoConf.prepare);
 		if (err != null) {
 			log(err);
 			return null;
@@ -236,7 +236,7 @@ class Build {
 		}
 
 		log("preparing");
-		var container = @await prepareContainer(repoConf, buildDir, repo.full_name, false);
+		var container = @await prepareContainer(repo.full_name, false);
 		if (container == null) {
 			log("FAILED: could not create container");
 			return 500;
