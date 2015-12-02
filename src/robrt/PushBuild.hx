@@ -8,7 +8,7 @@ import robrt.server.BuildDir;
 import robrt.server.ServerConfig;
 
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
-class Build {
+class PushBuild {
 	var request:IncomingRequest;
 	var repo:Repository;
 	var base:{ branch:String, commit:String };

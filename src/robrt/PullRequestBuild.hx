@@ -1,7 +1,7 @@
 package robrt;
 
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
-class PullRequestBuild extends Build {
+class PullRequestBuild extends PushBuild {
 	var pr:{ number:Int, commit:String };
 
 	@async override function prepareRepository()

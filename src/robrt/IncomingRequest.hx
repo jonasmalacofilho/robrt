@@ -73,7 +73,7 @@ class IncomingRequest {
 
 			log('action: ${e.created?"created":"pushed"} $branch');
 			for (repo in candidates) {
-				var build = new Build(this, repo, base);
+				var build = new PushBuild(this, repo, base);
 				var status = @await build.run();
 				if (status != 200)
 					return status;
