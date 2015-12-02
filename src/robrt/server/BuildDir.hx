@@ -1,8 +1,13 @@
 package robrt.server;
 
 typedef BuildDir = {
-	base : String,
-	repository : String,
-	docker_build : String
+	dir : {
+		base : String,
+		repository : String,
+		to_export : String,
+	},
+	file : {
+		docker_build : String
+	}
 }
 

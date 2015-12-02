@@ -71,14 +71,26 @@ class Robrt {
 	function getBuildDir(baseBuildDir, id):BuildDir
 	{
 		var base = Path.join(baseBuildDir, id);
-		// probably there's nothing to remove
-		try js.npm.Remove.removeSync(base, { ignoreMissing : true })
-		catch (e:Dynamic) log('Warning: $e; kept going');
-		return {
-			base : base,
-			repository : Path.join(base, "repository"),
-			docker_build : Path.join(base, "docker_image.tar")
+		var dir =  {
+			dir : {
+				base : base,
+				repository : Path.join(base, "repository"),
+				to_export : Path.join(base, "to_export")
+			},
+			file : {
+				docker_build : Path.join(base, "docker_image.tar")
+			}
 		}
+		try {
+			// probably there's nothing to remove since base is constructed from id, but ...
+			js.npm.Remove.removeSync(base, { ignoreMissing : true });
+			// create necessary subdirectories
+			js.npm.MkdirDashP.mkdirSync(dir.dir.base);
+			js.npm.MkdirDashP.mkdirSync(dir.dir.to_export);
+		} catch (e:Dynamic) {
+			log('Warning: $e; kept going');
+		}
+		return dir;
 	}
 
 	// TODO handle submodules
@@ -125,8 +137,15 @@ class Robrt {
 		// TODO make it async (requires fixed sync try/catch handling on haxe-continuation);
 		// for this it is necessary to store context for Context.typeof or abandon that method
 		// of choosing how to transform ETry expressions
-		var confData = Fs.readFileSync(Path.join(repoDir, ".robrt.json"), "utf8");
-		return haxe.Json.parse(confData);
+		try {
+			var p = Path.join(repoDir, ".robrt.json");
+			if (!sys.FileSystem.exists(p))
+				return {};
+			var confData = Fs.readFileSync(p, "utf8");
+			return haxe.Json.parse(confData);
+		} catch (e:Dynamic) {
+			return null;
+		}
 	}
 
 	function copyFile(src:String, dst:String, cb:js.Error->Void)
@@ -167,27 +186,49 @@ class Robrt {
 		return null;
 	}
 
-	@async function prepare(buildDir:BuildDir)
+	@async function prepareContainer(repoConf, buildDir:BuildDir, name:String, refresh:Bool):Container
 	{
-		var conf = try {
-			readRepoConfig(buildDir.repository);
-		} catch (e:Dynamic) {
-			log('Could not read .robrt.json in the repository ($e)');
-			return null;
-		}
-
-		var err = @await prepareDockerBuild(buildDir.docker_build, conf.prepare);
+		var err = @await prepareDockerBuild(buildDir.file.docker_build, repoConf.prepare);
 		if (err != null) {
 			log(err);
 			return null;
 		}
 
-		var err, ret = @await docker.buildImage(buildDir.docker_build, {});
+		var imageName = '$name:$buildId';
+		var err, out = @await docker.buildImage(buildDir.file.docker_build, {
+			t : imageName,
+			q : true,
+			rm : false,
+			pull : refresh,
+			nocache : refresh
+		});
 		if (err != null) {
 			log(err);
 			return null;
 		}
-		return ret;
+
+		var repoDir = "/robrt/repository";
+		var expDir = "/robrt/export";
+		var err, container = @await docker.createContainer({
+			Image : imageName,
+			Env : [
+				'$RepoPath=$repoDir',
+				'$OutPath=$expDir'
+			],
+			Cmd : [
+				"/bin/bash"
+			],
+			Mounts : [
+				{ Source : buildDir.dir.repository, Destination : repoDir },
+				{ Source : buildDir.dir.to_export, Destination : expDir }
+			]
+		});
+		if (err != null) {
+			log(err);
+			return null;
+		}
+
+		return container;
 	}
 
 	@async function execute(web:Web):Int
@@ -256,14 +297,31 @@ class Robrt {
 
 				log("cloning");
 				var b = { branch : branch, commit : e.head_commit.id };
-				var ok = @await openRepo(repo.full_name, buildDir.repository, b, repo.oauth2_token);
+				var ok = @await openRepo(repo.full_name, buildDir.dir.repository, b, repo.oauth2_token);
 				if (!ok)
 					return 500;
+				var repoConf = readRepoConfig(buildDir.dir.repository);
+				if (repoConf == null) {
+					log("Invalid .robrt.json");
+					return 200;
+				}
+				if (repoConf.prepare == null) {
+					log("nothing to do; no 'prepare' in .robrt.json");
+					return 200;
+				}
 
-				var image = @await prepare(buildDir);
-				if (image == null)
+				log("preparing");
+				var container = @await prepareContainer(repoConf, buildDir, repo.full_name, false);
+				if (container == null) {
+					log("FAILED: could not create a contianer");
 					return 500;
+				}
+				if (repoConf.build == null) {
+					log("nothing to do; no 'prepare' in .robrt.json");
+					continue;
+				}
 
+				log("building");
 				log("ABORTING: TODO build");
 				return 501;
 
@@ -279,6 +337,7 @@ class Robrt {
 				log("ABORTING: TODO export");
 				return 501;
 			}
+			return 200;
 		case GitHubPullRequest(e):
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
@@ -303,7 +362,7 @@ class Robrt {
 					log("cloning");
 					var b = { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha };
 					var p = { number : e.number, commit : e.pull_request.head.sha };
-					var ok = @await openRepo(repo.full_name, buildDir.repository, b, p, repo.oauth2_token);
+					var ok = @await openRepo(repo.full_name, buildDir.dir.repository, b, p, repo.oauth2_token);
 					if (!ok)
 						return 500;
 
@@ -328,6 +387,7 @@ class Robrt {
 					log("ABORTING: TODO export");
 					return 501;
 				}
+				return 200;
 			}
 		}
 		return 204;
