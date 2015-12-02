@@ -234,7 +234,7 @@ class Robrt {
 
 			if (e.deleted) {
 				log('action: deleted $branch');
-				// TODO delete
+				log("TODO delete");
 				return 204;
 			}
 
@@ -264,7 +264,7 @@ class Robrt {
 				if (image == null)
 					return 500;
 
-				log("TODO build");
+				log("ABORTING: TODO build");
 				return 501;
 
 				if (repo.export_options == null) {
@@ -276,7 +276,8 @@ class Robrt {
 					log("branch filtered out from exporting");
 					continue;
 				}
-				log("TODO export");
+				log("ABORTING: TODO export");
+				return 501;
 			}
 		case GitHubPullRequest(e):
 			switch (e.action) {
@@ -306,11 +307,14 @@ class Robrt {
 					if (!ok)
 						return 500;
 
-					log("TODO merge");
+					log("ABORTING: TODO merge");
 					return 501;
 
-					log("TODO prepare");
-					log("TODO build");
+					log("ABORTING: TODO prepare");
+					return 501;
+
+					log("ABORTING: TODO build");
+					return 501;
 
 					if (repo.export_options == null) {
 						log("nothing to export, no 'export_options'");
@@ -321,7 +325,8 @@ class Robrt {
 						log("exporting of pull request build results is disabled");
 						continue;
 					}
-					log("TODO export");
+					log("ABORTING: TODO export");
+					return 501;
 				}
 			}
 		}
