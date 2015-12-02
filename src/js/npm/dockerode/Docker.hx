@@ -1,6 +1,7 @@
 package js.npm.dockerode;
 
 import js.node.Buffer;
+import js.node.stream.Readable;
 import js.Error;
 
 @:jsRequire("dockerode")
@@ -15,9 +16,9 @@ extern class Docker {
 	function new(?opts:js.npm.dockerModem.Options);
 
 	@:overload(function(file:Buffer, opts:Dynamic, callback:Error->String->Void):Void {})
-	@:overload(function(filename:String, opts:Dynamic, callback:Error->Buffer->Void):Void {})
+	@:overload(function(filename:String, opts:Dynamic, callback:Error->Readable<Dynamic>->Void):Void {})
 	@:overload(function(filename:String, opts:Dynamic, callback:Error->String->Void):Void {})
-	function buildImage(file:Buffer, opts:Dynamic, callback:Error->Buffer->Void):Void;
+	function buildImage(file:Buffer, opts:Dynamic, callback:Error->Readable<Dynamic>->Void):Void;
 
 	function createContainer(opts:Dynamic, callback:Error->Container->Void):Void;
 }

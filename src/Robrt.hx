@@ -158,25 +158,26 @@ class Robrt {
 		src.pipe(dst);
 	}
 
-	@async function writeFile(dest:String, file:robrt.repository.File)
+	@async function writeFile(dest:String, file:robrt.repository.File, repoDir:String)
 	{
 		var err;
 		switch (file.type) {
 		case InlineFile:
 			err = @await Fs.writeFile(dest, file.data);
 		case PathToFile:
-			err = @await copyFile(file.data, dest);
+			err = @await copyFile(Path.join(repoDir, file.data), dest);
 		}
 		return err;
 	}
 
-	@async function prepareDockerBuild(dest:String, opts:robrt.repository.PrepareOptions)
+	@async function prepareDockerBuild(buildDir:BuildDir, opts:robrt.repository.PrepareOptions)
 	{
+		var dest = buildDir.file.docker_build;
 		var tdest = dest + ".contents";
 		var err = @await Fs.mkdir(tdest);
 		if (err != null)
 			return err;
-		var err = @await writeFile(Path.join(tdest, "Dockerfile"), opts.dockerfile);
+		var err = @await writeFile(Path.join(tdest, "Dockerfile"), opts.dockerfile, buildDir.dir.repository);
 		if (err != null)
 			return err;
 
@@ -186,17 +187,36 @@ class Robrt {
 		return null;
 	}
 
+	function buildImage(image:String, opts:Dynamic, callback:js.Error->Void)
+	{
+		function cb(err, out:js.node.stream.Readable<Dynamic>) {
+			if (err != null) {
+				callback(err);
+				return;
+			}
+			var buf = new StringBuf();
+			out.on("data", function (chunk) buf.add(chunk));
+			out.on("error", callback);
+			out.on("end", function () {
+				var out = StringTools.trim(buf.toString()).split("\r\n");
+				var last:haxe.DynamicAccess<String> = haxe.Json.parse(out[out.length - 1]);
+				callback(last.exists("error") ? new js.Error(last["error"]) : null);
+			});
+		}
+		docker.buildImage(image, opts, cb);
+	}
+
 	@async function prepareContainer(repoConf, buildDir:BuildDir, name:String, refresh:Bool):Container
 	{
-		var err = @await prepareDockerBuild(buildDir.file.docker_build, repoConf.prepare);
+		var err = @await prepareDockerBuild(buildDir, repoConf.prepare);
 		if (err != null) {
 			log(err);
 			return null;
 		}
 
-		var imageName = '$name:$buildId';
-		var err, out = @await docker.buildImage(buildDir.file.docker_build, {
-			t : imageName,
+		var imageName = 'robrt-builds:$name';
+		var err = @await buildImage(buildDir.file.docker_build, {
+			t : ['$imageName:$buildId', '$imageName:latest'],
 			q : true,
 			rm : false,
 			pull : refresh,
@@ -210,7 +230,7 @@ class Robrt {
 		var repoDir = "/robrt/repository";
 		var expDir = "/robrt/export";
 		var err, container = @await docker.createContainer({
-			Image : imageName,
+			Image : '$imageName:$buildId',
 			Env : [
 				'$RepoPath=$repoDir',
 				'$OutPath=$expDir'
@@ -313,7 +333,7 @@ class Robrt {
 				log("preparing");
 				var container = @await prepareContainer(repoConf, buildDir, repo.full_name, false);
 				if (container == null) {
-					log("FAILED: could not create a contianer");
+					log("FAILED: could not create container");
 					return 500;
 				}
 				if (repoConf.build == null) {
