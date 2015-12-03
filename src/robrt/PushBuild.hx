@@ -199,14 +199,16 @@ class PushBuild {
 				'$RepoPath=$repoDir',
 				'$OutPath=$expDir'
 			],
-			Cmd : repoConf.build.cmds,
+			Cmd : "bash",
 			Mounts : [
 				{ Source : buildDir.dir.repository, Destination : repoDir },
 				{ Source : buildDir.dir.to_export, Destination : expDir }
 			],
-			AttachStdin : false,
-			AttachStdout : false,
-			AttachStderr : false
+			AttachStdin : true,
+			AttachStdout : true,
+			AttachStderr : true,
+			OpenStdin : true,
+			Tty : true
 		});
 		if (err != null) {
 			log(err);
@@ -218,13 +220,13 @@ class PushBuild {
 			log(oerr);
 			return null;
 		}
-		// var ierr, stdin = @await container.attach({ stream : true, stdin : true });
-		// if (ierr != null) {
-		// 	log(ierr);
-		// 	return null;
-		// }
+		var ierr, stdin = @await container.attach({ stream : true, stdin : true });
+		if (ierr != null) {
+			log(ierr);
+			return null;
+		}
 
-		return { container : container, stdouts : stdouts, stdin : null };
+		return { container : container, stdouts : stdouts, stdin : stdin };
 	}
 
 	@async function prepareRepository()
@@ -266,15 +268,35 @@ class PushBuild {
 			return 200;
 		}
 
-		container.stdouts.pipe(js.Node.process.stdout);
 		var err, zzz = @await container.container.start();
 		if (err != null) {
 			log(err);
 			return 500;
 		}
-		var err = @await container.stdouts.on("end");
-		if (err != null)
-			log(err);
+
+		var buffer = "";
+		for (id in 0...repoConf.build.cmds.length) {
+			var cmd = repoConf.build.cmds[id];
+			var wcmd = 'echo "Robrt: starting cmd <$id>"; $cmd; echo "Robrt: finished cmd <$id> with status <$$?>"\n';
+			log('running $id: $cmd\nas: $wcmd');
+			container.stdin.write(wcmd);
+			var wait = function (chunk) {
+				buffer += chunk;
+				var p = new EReg('Robrt: finished cmd <$id> with status <(\\d+)>', "i");
+				if (p.match(buffer)) {
+					container.stdouts.emit("cmd-finished", p.matched(1));
+				}
+			};
+			container.stdouts.on("data", wait);
+			var exit = @await container.stdouts.once("cmd-finished");
+			container.stdouts.removeListener("data", wait);
+			if (exit != 0) {
+				log('ABORTING: cmd $id exited with non-zero status $exit');
+				return 500;
+			}
+			log('cmd $id exited with $exit');
+		}
+		log('output:\nbuffer');
 
 		log("building");
 		log("ABORTING: TODO build");
