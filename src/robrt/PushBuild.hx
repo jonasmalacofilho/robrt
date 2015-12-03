@@ -1,6 +1,7 @@
 package robrt;
 
 import js.node.*;
+import js.node.stream.*;
 import js.npm.dockerode.Docker;
 import robrt.Variables;
 import robrt.repository.RepoConfig;
@@ -16,6 +17,7 @@ class PushBuild {
 	var buildDir:BuildDir;
 	var repoConf:RepoConfig;
 	var docker:Docker;
+	var container:{ container : Container, stdouts:Readable<Dynamic>, stdin:Writable<Dynamic> };
 
 	function log(msg:Dynamic, ?pos:haxe.PosInfos)
 		request.log(msg, pos);
@@ -35,7 +37,8 @@ class PushBuild {
 				to_export : Path.join(base, "to_export")
 			},
 			file : {
-				docker_build : Path.join(base, "docker_image.tar")
+				docker_build : Path.join(base, "docker_image.tar"),
+				robrt_build_log : Path.join(base, "robrt_build_log")
 			}
 		}
 		try {
@@ -167,7 +170,7 @@ class PushBuild {
 		docker.buildImage(image, opts, cb);
 	}
 
-	@async function prepareContainer(name:String, refresh:Bool):Container
+	@async function prepareContainer(name:String, refresh:Bool)
 	{
 		var err = @await prepareDockerBuild(repoConf.prepare);
 		if (err != null) {
@@ -196,20 +199,32 @@ class PushBuild {
 				'$RepoPath=$repoDir',
 				'$OutPath=$expDir'
 			],
-			Cmd : [
-				"/bin/bash"
-			],
+			Cmd : repoConf.build.cmds,
 			Mounts : [
 				{ Source : buildDir.dir.repository, Destination : repoDir },
 				{ Source : buildDir.dir.to_export, Destination : expDir }
-			]
+			],
+			AttachStdin : false,
+			AttachStdout : false,
+			AttachStderr : false
 		});
 		if (err != null) {
 			log(err);
 			return null;
 		}
 
-		return container;
+		var oerr, stdouts = @await container.attach({ stream : true, stdout : true, stderr : true });
+		if (oerr != null) {
+			log(oerr);
+			return null;
+		}
+		// var ierr, stdin = @await container.attach({ stream : true, stdin : true });
+		// if (ierr != null) {
+		// 	log(ierr);
+		// 	return null;
+		// }
+
+		return { container : container, stdouts : stdouts, stdin : null };
 	}
 
 	@async function prepareRepository()
@@ -228,7 +243,7 @@ class PushBuild {
 		repoConf = readRepoConfig(buildDir.dir.repository);
 		if (repoConf == null) {
 			log("Invalid .robrt.json");
-			return 200;
+			return 500;
 		}
 		if (repoConf.prepare == null) {
 			log("nothing to do; no 'prepare' in .robrt.json");
@@ -236,12 +251,12 @@ class PushBuild {
 		}
 
 		log("preparing");
-		var container = @await prepareContainer(repo.full_name, false);
+		container = @await prepareContainer(repo.full_name, false);
 		if (container == null) {
 			log("FAILED: could not create container");
 			return 500;
 		}
-		return 200;
+		return 0;
 	}
 
 	@async function build()
@@ -250,6 +265,16 @@ class PushBuild {
 			log("nothing to do; no 'build' in .robrt.json");
 			return 200;
 		}
+
+		container.stdouts.pipe(js.Node.process.stdout);
+		var err, zzz = @await container.container.start();
+		if (err != null) {
+			log(err);
+			return 500;
+		}
+		var err = @await container.stdouts.on("end");
+		if (err != null)
+			log(err);
 
 		log("building");
 		log("ABORTING: TODO build");
@@ -284,12 +309,12 @@ class PushBuild {
 		docker = new Docker();
 
 		var status = @await prepareBuild();
-		if (status == 200)
+		if (status == 0)
 			status = @await build();
 
 		// TODO close cnx to docker
 
-		if (status != 200)
+		if (status != 0)
 			return status;
 
 		if (repo.export_options == null) {
@@ -302,7 +327,8 @@ class PushBuild {
 			return 200;
 		}
 
-		return @await export();
+		status = @await export();
+		return status != 0 ? status : 200;
 	}
 
 	public function new(request, repo, base)

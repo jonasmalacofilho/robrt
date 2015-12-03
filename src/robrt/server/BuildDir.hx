@@ -7,7 +7,11 @@ typedef BuildDir = {
 		to_export : String,
 	},
 	file : {
-		docker_build : String
+		docker_build : String,
+		// TODO clone log
+		// TODO docker_build_log
+		robrt_build_log : String
+		// TODO robrt_export_log
 	}
 }
 

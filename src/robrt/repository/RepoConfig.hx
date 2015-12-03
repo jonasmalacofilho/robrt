@@ -15,8 +15,9 @@ typedef PrepareOptions = {
 	// TODO other support files
 }
 
-// TODO
-typedef BuildOptions = Dynamic;
+typedef BuildOptions = {
+	cmds : Array<String>
+};
 
 // TODO
 typedef ExportOptions = Dynamic;

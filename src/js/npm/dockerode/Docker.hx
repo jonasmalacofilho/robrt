@@ -1,12 +1,16 @@
 package js.npm.dockerode;
 
 import js.node.Buffer;
-import js.node.stream.Readable;
+import js.node.stream.*;
 import js.Error;
 
 @:jsRequire("dockerode")
 @:native("Container")
 extern class Container {
+	@:overload(function(opts:{ stream:Bool, stdin:Bool }, callback:Error->Writable<Dynamic>->Void):Void {})
+	function attach(opts:{ stream:Bool, stdout:Bool, stderr:Bool }, callback:Error->Readable<Dynamic>->Void):Void;
+
+	function start(callback:Error->String->Void):Void;
 }
 
 @:jsRequire("dockerode")
