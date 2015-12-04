@@ -11,6 +11,8 @@ extern class Container {
 	function attach(opts:{ stream:Bool, stdout:Bool, stderr:Bool }, callback:Error->Readable<Dynamic>->Void):Void;
 
 	function start(callback:Error->String->Void):Void;
+
+	function inspect(callback:Error->String->Void):Void;
 }
 
 @:jsRequire("dockerode")
