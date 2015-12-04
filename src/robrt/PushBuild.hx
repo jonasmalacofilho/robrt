@@ -292,7 +292,7 @@ class PushBuild {
 		var buffer = "";
 		var id = -1;
 		var p = ~/robrt: finished cmd <(\d+)> with status <(\d+)>/i;
-		
+
 		// to run a command, just write it to the container stdin
 		function run() {
 			id++;
@@ -339,7 +339,7 @@ class PushBuild {
 		container.stdouts.on("data", wait);
 		container.stdouts.on("cmd-finished", finished);
 		// TODO limit the maximum execution time of a container to something sensible
-		
+
 		log("executing commands");
 		run();  // execute the first command
 		@await container.stdouts.once("end");  // wait for the container to finish
