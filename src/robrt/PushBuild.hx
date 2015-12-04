@@ -268,37 +268,87 @@ class PushBuild {
 			return 200;
 		}
 
+		if (repoConf.build.cmds == null || repoConf.build.cmds.length == 0) {
+			log("nothing to do; empty build command list .robrt.json");
+			return 200;
+		}
+
+		log("building");
+
+		log("spinning up container");
 		var err, zzz = @await container.container.start();
 		if (err != null) {
 			log(err);
 			return 500;
 		}
 
+		// actual commands to execute are build from user specified
+		// ones, but with some additional contextual information that
+		// allows us to track each command start and finish
+		var wcmds = [];
+		for (id in 0...repoConf.build.cmds.length)
+			wcmds.push('echo "Robrt: starting cmd <$id>"; ${repoConf.build.cmds[id]}; echo "Robrt: finished cmd <$id> with status <$$?>"\n');
+
 		var buffer = "";
-		for (id in 0...repoConf.build.cmds.length) {
+		var id = -1;
+		var p = ~/robrt: finished cmd <(\d+)> with status <(\d+)>/i;
+		
+		// to run a command, just write it to the container stdin
+		function run() {
+			id++;
 			var cmd = repoConf.build.cmds[id];
-			var wcmd = 'echo "Robrt: starting cmd <$id>"; $cmd; echo "Robrt: finished cmd <$id> with status <$$?>"\n';
+			var wcmd = wcmds[id];
 			log('running $id: $cmd\nas: $wcmd');
 			container.stdin.write(wcmd);
-			var wait = function (chunk) {
-				buffer += chunk;
-				var p = new EReg('Robrt: finished cmd <$id> with status <(\\d+)>', "i");
-				if (p.match(buffer)) {
-					container.stdouts.emit("cmd-finished", p.matched(1));
-				}
-			};
-			container.stdouts.on("data", wait);
-			var exit = @await container.stdouts.once("cmd-finished");
-			container.stdouts.removeListener("data", wait);
-			if (exit != 0) {
-				log('ABORTING: cmd $id exited with non-zero status $exit');
-				return 500;
-			}
-			log('cmd $id exited with $exit');
 		}
-		log('output:\nbuffer');
 
-		log("building");
+		// at the same time, wait for the "finish" markers to appear on the output
+		// when they do, emit a custom "cmd-finished" event
+		function wait(chunk:String) {
+			// TODO change this into a transform stream _transform method
+			buffer += chunk;
+			while (p.match(buffer)) {
+				buffer = p.matchedRight();
+				if (p.matched(1) == Std.string(id)) {
+					container.stdouts.emit("cmd-finished", p.matched(2));
+					break;
+				}
+			}
+		};
+
+		// handle what to next after a command has finished
+		// if all is well, just execute the next one; else (on error or
+		// if there are no more commands to run) do something then stop
+		// the container
+		function finished(exit:Int) {
+			log('cmd $id exited with status $exit');
+			if (exit != 0) {
+				log("ABORTING: non zero status");
+				// should result in a "end" event to stdouts
+				container.stdin.write('exit $exit\n');  // FIXME (possible) kill container
+			} else if (id + 1 < wcmds.length) {
+				// run the next command
+				run();
+			} else {
+				log("successfull build, it seems");
+				// should result in a "end" event to stdouts
+				container.stdin.write("exit 0\n");  // FIXME (possible) stop container
+			}
+		}
+
+		container.stdouts.on("data", wait);
+		container.stdouts.on("cmd-finished", finished);
+		// TODO limit the maximum execution time of a container to something sensible
+		
+		log("executing commands");
+		run();  // execute the first command
+		@await container.stdouts.once("end");  // wait for the container to finish
+
+		// TODO get container exit code
+		// TODO save container output
+
+		// TODO cleanup
+
 		log("ABORTING: TODO build");
 		return 501;
 	}
