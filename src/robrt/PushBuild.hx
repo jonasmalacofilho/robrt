@@ -62,7 +62,7 @@ class PushBuild {
 		var authUrl = if (token == null) url else StringTools.replace(url, "https://", 'https://$token:$token@');
 
 		// clone and checkout the specified commit
-		// for homegeneity with `pr != null` reset the `base.branch` to `base.commit`
+		// for homogeneity with `pr != null` reset the `base.branch` to `base.commit`
 		// (this ensures that we're not building some more recent version of the branch by accident)
 		var commands = [
 			'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest',
@@ -330,7 +330,7 @@ class PushBuild {
 				// run the next command
 				run();
 			} else {
-				log("successfull build, it seems");
+				log("successful build, it seems");
 				// should result in a "end" event to stdouts
 				container.stdin.write("exit 0\n");  // FIXME (possible) stop container
 			}
