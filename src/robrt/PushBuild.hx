@@ -298,7 +298,7 @@ class PushBuild {
 			id++;
 			var cmd = repoConf.build.cmds[id];
 			var wcmd = wcmds[id];
-			log('running $id: $cmd\nas: $wcmd');
+			log('running $id: $cmd');
 			container.stdin.write(wcmd);
 		}
 
@@ -324,15 +324,15 @@ class PushBuild {
 			log('cmd $id exited with status $exit');
 			if (exit != 0) {
 				log("ABORTING: non zero status");
-				// should result in a "end" event to stdouts
-				container.stdin.write('exit $exit\n');  // FIXME (possible) kill container
+				// should ultimately result in a "end" event to stdouts
+				container.container.kill(function (err, data) if (err != null) log('Warning: kill container error $err ($data)') );
 			} else if (id + 1 < wcmds.length) {
 				// run the next command
 				run();
 			} else {
 				log("successful build, it seems");
-				// should result in a "end" event to stdouts
-				container.stdin.write("exit 0\n");  // FIXME (possible) stop container
+				// should ultimately result in a "end" event to stdouts
+				container.container.stop({ t : 2 }, function (err, data) if (err != null) log('Warning: stop container error $err ($data)') );
 			}
 		}
 
@@ -344,7 +344,6 @@ class PushBuild {
 		run();  // execute the first command
 		@await container.stdouts.once("end");  // wait for the container to finish
 
-		// TODO get container exit code
 		// TODO save container output
 
 		// TODO cleanup

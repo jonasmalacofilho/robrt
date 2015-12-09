@@ -13,6 +13,12 @@ extern class Container {
 	function start(callback:Error->String->Void):Void;
 
 	function inspect(callback:Error->String->Void):Void;
+
+	@:overload(function(callback:Error->Dynamic->Void):Void {})
+	function stop(opts:{ ?t:Int }, callback:Error->Dynamic->Void):Void;
+
+	@:overload(function(callback:Error->Dynamic->Void):Void {})
+	function kill(opts:{ ?signal:String }, callback:Error->Dynamic->Void):Void;
 }
 
 @:jsRequire("dockerode")
