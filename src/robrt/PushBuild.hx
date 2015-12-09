@@ -19,10 +19,10 @@ class OutputStream extends Transform<OutputStream> {
 		matchBuffer = "";
 	}
 
-	override function _transform(chunk:Buffer, encoding:String, callback:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
+	override function _transform(chunk:Buffer, encoding:String, cb:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
 	{
 		this.push(chunk);
-		matchBuffer += chunk.toString();
+		matchBuffer += chunk.toString();  // TODO handle failure
 		while (listenFor.pattern.match(matchBuffer)) {
 			matchBuffer = listenFor.pattern.matchedRight();
 			if (listenFor.pattern.matched(1) == Std.string(listenFor.id)) {
@@ -30,7 +30,7 @@ class OutputStream extends Transform<OutputStream> {
 				break;
 			}
 		}
-		callback(null, null);
+		cb(null, null);
 	}
 }
 
@@ -234,7 +234,7 @@ class PushBuild {
 			AttachStdout : true,
 			AttachStderr : true,
 			OpenStdin : true,
-			Tty : true
+			Tty : false
 		});
 		if (err != null) {
 			log(err);
@@ -317,10 +317,13 @@ class PushBuild {
 
 		var buffer = "";
 		var id = {
-			pattern : ~/robrt: finished cmd <(\d+)> with status <(\d+)>/i,
+			pattern : ~/robrt: finished cmd <(\d+)> with status <(\d+)>\n/i,
 			id : -1
 		};
-			
+
+		var logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
+		var output = new OutputStream(id, logOutput);
+		output.pipe(logOutput);
 
 		// to run a command, just write it to the container stdin
 		function run() {
@@ -328,6 +331,7 @@ class PushBuild {
 			var cmd = repoConf.build.cmds[id.id];
 			var wcmd = wcmds[id.id];
 			log('running ${id.id}: $cmd');
+			output.write('+ $cmd\n');
 			container.stdin.write(wcmd);
 		}
 
@@ -350,10 +354,6 @@ class PushBuild {
 				container.container.stop({ t : 2 }, function (err, data) if (err != null) log('Warning: stop container error $err ($data)') );
 			}
 		}
-
-		var logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
-		var output = new OutputStream(id, logOutput);
-		output.pipe(logOutput);
 
 		container.stdouts.pipe(output);
 		output.on("cmd-finished", finished);
