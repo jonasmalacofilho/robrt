@@ -8,6 +8,32 @@ import robrt.repository.RepoConfig;
 import robrt.server.BuildDir;
 import robrt.server.ServerConfig;
 
+class OutputStream extends Transform<OutputStream> {
+	var listenFor:{ pattern:EReg, id:Int };
+	var matchBuffer:String;
+
+	public function new(listenFor, outputTo:Writable<Dynamic>)
+	{
+		super();
+		this.listenFor = listenFor;
+		matchBuffer = "";
+	}
+
+	override function _transform(chunk:Buffer, encoding:String, callback:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
+	{
+		this.push(chunk);
+		matchBuffer += chunk.toString();
+		while (listenFor.pattern.match(matchBuffer)) {
+			matchBuffer = listenFor.pattern.matchedRight();
+			if (listenFor.pattern.matched(1) == Std.string(listenFor.id)) {
+				this.emit("cmd-finished", listenFor.pattern.matched(2));
+				break;
+			}
+		}
+		callback(null, null);
+	}
+}
+
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
 class PushBuild {
 	var request:IncomingRequest;
@@ -290,43 +316,32 @@ class PushBuild {
 			wcmds.push('echo "Robrt: starting cmd <$id>"; ${repoConf.build.cmds[id]}; echo "Robrt: finished cmd <$id> with status <$$?>"\n');
 
 		var buffer = "";
-		var id = -1;
-		var p = ~/robrt: finished cmd <(\d+)> with status <(\d+)>/i;
+		var id = {
+			pattern : ~/robrt: finished cmd <(\d+)> with status <(\d+)>/i,
+			id : -1
+		};
+			
 
 		// to run a command, just write it to the container stdin
 		function run() {
-			id++;
-			var cmd = repoConf.build.cmds[id];
-			var wcmd = wcmds[id];
-			log('running $id: $cmd');
+			id.id++;
+			var cmd = repoConf.build.cmds[id.id];
+			var wcmd = wcmds[id.id];
+			log('running ${id.id}: $cmd');
 			container.stdin.write(wcmd);
 		}
-
-		// at the same time, wait for the "finish" markers to appear on the output
-		// when they do, emit a custom "cmd-finished" event
-		function wait(chunk:String) {
-			// TODO change this into a transform stream _transform method
-			buffer += chunk;
-			while (p.match(buffer)) {
-				buffer = p.matchedRight();
-				if (p.matched(1) == Std.string(id)) {
-					container.stdouts.emit("cmd-finished", p.matched(2));
-					break;
-				}
-			}
-		};
 
 		// handle what to next after a command has finished
 		// if all is well, just execute the next one; else (on error or
 		// if there are no more commands to run) do something then stop
 		// the container
 		function finished(exit:Int) {
-			log('cmd $id exited with status $exit');
+			log('cmd ${id.id} exited with status $exit');
 			if (exit != 0) {
 				log("ABORTING: non zero status");
 				// should ultimately result in a "end" event to stdouts
 				container.container.kill(function (err, data) if (err != null) log('Warning: kill container error $err ($data)') );
-			} else if (id + 1 < wcmds.length) {
+			} else if (id.id + 1 < wcmds.length) {
 				// run the next command
 				run();
 			} else {
@@ -336,15 +351,17 @@ class PushBuild {
 			}
 		}
 
-		container.stdouts.on("data", wait);
-		container.stdouts.on("cmd-finished", finished);
+		var logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
+		var output = new OutputStream(id, logOutput);
+		output.pipe(logOutput);
+
+		container.stdouts.pipe(output);
+		output.on("cmd-finished", finished);
 		// TODO limit the maximum execution time of a container to something sensible
 
 		log("executing commands");
 		run();  // execute the first command
 		@await container.stdouts.once("end");  // wait for the container to finish
-
-		// TODO save container output
 
 		// TODO cleanup
 
