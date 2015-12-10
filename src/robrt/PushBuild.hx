@@ -11,61 +11,16 @@ import robrt.server.ServerConfig;
 class OutputStream extends Transform<OutputStream> {
 	var listenFor:{ pattern:EReg, id:Int };
 	var matchBuffer:String;
-	var header:Null<Buffer>;
-	var bytesLeft:Int;
 
-	public function new(listenFor, outputTo:Writable<Dynamic>)
+	public function new(listenFor)
 	{
 		super();
 		this.listenFor = listenFor;
 		matchBuffer = "";
-		header = null;
-		bytesLeft = 0;
 	}
 
-	function readChunk(streamChunk:Buffer)
+	override function _transform(chunk:Buffer, encoding:String, cb:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
 	{
-		var chunk = "";
-		var start = 0, len = streamChunk.byteLength;
-		while (start < len) {
-			if (header == null) {
-				var s = len - start;
-				if (s > 8) s = 8;
-				header = streamChunk.slice(start, start + s);
-				if (header.byteLength == 8)
-					bytesLeft = header.readInt32BE(4);
-				start += s;
-			} else if (header.byteLength < 8) {
-				var s = header.byteLength + len - start;
-				if (s > 8) s = 8;
-				var b = new Buffer(s);
-				header.copy(b, 0);
-				streamChunk.copy(b, header.byteLength, start, start + s - header.byteLength);
-				header = b;
-				bytesLeft = header.readInt32BE(4);
-				start += s - header.byteLength;
-			} else if (bytesLeft > 0) {
-				if (len - start > bytesLeft) {
-					chunk += streamChunk.slice(start, start + bytesLeft).toString();
-					header = null;
-					start += bytesLeft;
-					bytesLeft = 0;
-				} else {
-					chunk += streamChunk.slice(start).toString();
-					bytesLeft -= len - start;
-					start = len;
-				}
-			} else {
-				header = null;
-				bytesLeft = 0;
-			}
-		}
-		return chunk;
-	}
-
-	override function _transform(streamChunk:Buffer, encoding:String, cb:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
-	{
-		var chunk:String = readChunk(streamChunk);
 		this.push(chunk);
 		matchBuffer += chunk;
 		while (listenFor.pattern.match(matchBuffer)) {
@@ -360,7 +315,7 @@ class PushBuild {
 		};
 
 		var logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
-		var output = new OutputStream(id, logOutput);
+		var output = new OutputStream(id);
 		output.pipe(logOutput);
 
 		// to run a command, just write it to the container stdin
@@ -393,7 +348,7 @@ class PushBuild {
 			}
 		}
 
-		container.stdouts.pipe(output);
+		container.container.modem.demuxStream(container.stdouts, output, output);
 		output.on("cmd-finished", finished);
 		// TODO limit the maximum execution time of a container to something sensible
 

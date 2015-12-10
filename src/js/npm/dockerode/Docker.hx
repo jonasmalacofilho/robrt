@@ -4,9 +4,13 @@ import js.node.Buffer;
 import js.node.stream.*;
 import js.Error;
 
-@:jsRequire("dockerode")
-@:native("Container")
+extern class Modem {
+	function demuxStream(stream:Readable.IReadable, stdout:Writable.IWritable, stderr:Writable.IWritable):Void;
+}
+
 extern class Container {
+	var modem:Modem;
+
 	@:overload(function(opts:{ stream:Bool, stdin:Bool }, callback:Error->Writable<Dynamic>->Void):Void {})
 	function attach(opts:{ stream:Bool, stdout:Bool, stderr:Bool }, callback:Error->Readable<Dynamic>->Void):Void;
 
