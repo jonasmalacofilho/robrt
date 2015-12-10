@@ -11,18 +11,63 @@ import robrt.server.ServerConfig;
 class OutputStream extends Transform<OutputStream> {
 	var listenFor:{ pattern:EReg, id:Int };
 	var matchBuffer:String;
+	var header:Null<Buffer>;
+	var bytesLeft:Int;
 
 	public function new(listenFor, outputTo:Writable<Dynamic>)
 	{
 		super();
 		this.listenFor = listenFor;
 		matchBuffer = "";
+		header = null;
+		bytesLeft = 0;
 	}
 
-	override function _transform(chunk:Buffer, encoding:String, cb:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
+	function readChunk(streamChunk:Buffer)
 	{
+		var chunk = "";
+		var start = 0, len = streamChunk.byteLength;
+		while (start < len) {
+			if (header == null) {
+				var s = len - start;
+				if (s > 8) s = 8;
+				header = streamChunk.slice(start, start + s);
+				if (header.byteLength == 8)
+					bytesLeft = header.readInt32BE(4);
+				start += s;
+			} else if (header.byteLength < 8) {
+				var s = header.byteLength + len - start;
+				if (s > 8) s = 8;
+				var b = new Buffer(s);
+				header.copy(b, 0);
+				streamChunk.copy(b, header.byteLength, start, start + s - header.byteLength);
+				header = b;
+				bytesLeft = header.readInt32BE(4);
+				start += s - header.byteLength;
+			} else if (bytesLeft > 0) {
+				if (len - start > bytesLeft) {
+					chunk += streamChunk.slice(start, start + bytesLeft).toString();
+					header = null;
+					start += bytesLeft;
+					bytesLeft = 0;
+				} else {
+					chunk += streamChunk.slice(start).toString();
+					bytesLeft -= len - start;
+					start = len;
+				}
+			} else {
+				header = null;
+				bytesLeft = 0;
+			}
+		}
+		return chunk;
+	}
+
+	override function _transform(streamChunk:Buffer, encoding:String, cb:js.Error->haxe.extern.EitherType<String,Buffer>->Void)
+	{
+		var chunk:String = readChunk(streamChunk);
 		this.push(chunk);
-		matchBuffer += chunk.toString();  // TODO handle failure
+		matchBuffer += chunk;
 		while (listenFor.pattern.match(matchBuffer)) {
 			matchBuffer = listenFor.pattern.matchedRight();
 			if (listenFor.pattern.matched(1) == Std.string(listenFor.id)) {
@@ -301,13 +346,6 @@ class PushBuild {
 
 		log("building");
 
-		log("spinning up container");
-		var err, zzz = @await container.container.start();
-		if (err != null) {
-			log(err);
-			return 500;
-		}
-
 		// actual commands to execute are build from user specified
 		// ones, but with some additional contextual information that
 		// allows us to track each command start and finish
@@ -331,7 +369,7 @@ class PushBuild {
 			var cmd = repoConf.build.cmds[id.id];
 			var wcmd = wcmds[id.id];
 			log('running ${id.id}: $cmd');
-			output.write('+ $cmd\n');
+			// output.write('+ $cmd\n');
 			container.stdin.write(wcmd);
 		}
 
@@ -358,6 +396,13 @@ class PushBuild {
 		container.stdouts.pipe(output);
 		output.on("cmd-finished", finished);
 		// TODO limit the maximum execution time of a container to something sensible
+
+		log("spinning up container");
+		var err, zzz = @await container.container.start();
+		if (err != null) {
+			log(err);
+			return 500;
+		}
 
 		log("executing commands");
 		run();  // execute the first command
