@@ -12,11 +12,15 @@ import robrt.server.ServerConfig;
 class IncomingRequest {
 	public var buildId(default,null):String;
 	var config:ServerConfig;
+	var req:IncomingMessage;
+	var res:ServerResponse;
 
-	function new(config)
+	function new(config:ServerConfig, req:IncomingMessage, res:ServerResponse)
 	{
 		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
 		this.config = config;
+		this.req = req;
+		this.res = res;
 	}
 
 	static function parsePushRef(ref:String)
@@ -24,18 +28,36 @@ class IncomingRequest {
 		return ~/^refs\/(heads|tags)\//.replace(ref, "");
 	}
 
-	@async function execute(web:Web):Int
+	function getHook(web:Web, cb:js.Error->Incoming->Void)
 	{
-		var hook:Incoming = try {
-			Incoming.fromWeb(web);
+		try {
+			var hook = Incoming.fromWeb(web);
+			cb(null, hook);
 		} catch (e:Dynamic) {
-			// TODO try to return a more informative status, such as 400
-			// (missing header, bad json), 405 (method not allowed), 415
-			// (bad content-type) or 500 (other reasons)
-			log('Failure to interpret: $e');
-			return 500;
+			cb(new js.Error(e), null);
 		}
+	}
 
+	@async function execute()
+	{
+		var buf = new StringBuf();
+		req.on("data", function (data:String) buf.add(data));
+
+		@await req.on("end");
+		var data = buf.toString();
+		var web = {
+			getClientHeader : function (name) return req.headers[name.toLowerCase()],
+			getMethod : function () return req.method,
+			getPostData : function () return data
+		};
+
+		var err, hook = @await getHook(web);
+		if (err != null) {
+			log('Error parsing request: $err');
+			res.writeHead(400, { "Content-Type" : "text/plain" });
+			@await res.end('ERROR: $err\n');
+			return;
+		}
 		log('DELIVERY: ${hook.delivery}');
 
 		var candidates = [];
@@ -45,7 +67,9 @@ class IncomingRequest {
 		}
 		if (candidates.length == 0) {
 			log("no signature matches");
-			return 404;
+			res.writeHead(404);
+			@await res.end();
+			return;
 		}
 
 		var delivery = hook.parse();
@@ -55,9 +79,13 @@ class IncomingRequest {
 		candidates = candidates.filter(function (r) return r.full_name == delivery.repository.full_name);
 		if (candidates.length == 0) {
 			log("no repository matches");
-			return 404;
+			res.writeHead(404);
+			@await res.end();
 		}
 		log("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
+
+		res.writeHead(202, { "Content-Type" : "text/plain" });
+		@await res.end('Accepted, starting build id $buildId\n');
 
 		switch (delivery.event) {
 		case GitHubPing(e):  // done, NOOP
@@ -68,7 +96,7 @@ class IncomingRequest {
 			if (e.deleted) {
 				log('action: deleted $branch');
 				log("TODO delete");
-				return 204;
+				return;
 			}
 
 			log('action: ${e.created?"created":"pushed"} $branch');
@@ -76,9 +104,8 @@ class IncomingRequest {
 				var build = new PushBuild(this, repo, base);
 				var status = @await build.run();
 				if (status != 200)
-					return status;
+					return;
 			}
-			return 200;
 		case GitHubPullRequest(e):
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
@@ -91,12 +118,10 @@ class IncomingRequest {
 					var build = new PullRequestBuild(this, repo, base, pr);
 					var status = @await build.run();
 					if (status != 200)
-						return status;
+						return;
 				}
-				return 200;
 			}
 		}
-		return 204;
 	}
 
 	public function log(msg:Dynamic, ?p:haxe.PosInfos)
@@ -106,22 +131,10 @@ class IncomingRequest {
 
 	public static function handleRequest(config:ServerConfig, req:IncomingMessage, res:ServerResponse)
 	{
-		var r = new IncomingRequest(config);
+		var r = new IncomingRequest(config, req, res);
 		trace('${req.method} ${req.url} -> [${r.buildId}]');
-		var buf = new StringBuf();
-		req.on("data", function (data) buf.add(data));
-		req.on("end", function () {
-			var data = buf.toString();
-			var web = {
-				getClientHeader : function (name) return req.headers[name.toLowerCase()],
-				getMethod : function () return req.method,
-				getPostData : function () return data
-			};
-			r.execute(web, function (status) {
-				r.log('Returnig $status (${Http.STATUS_CODES.get(Std.string(status))})');
-				res.writeHead(status);
-				res.end();
-			});
+		r.execute(function () {
+			r.log('Done');
 		});
 	}
 }
