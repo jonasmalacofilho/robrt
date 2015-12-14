@@ -326,7 +326,7 @@ class PushBuild {
 			var cmd = repoConf.build.cmds[id.id];
 			var wcmd = wcmds[id.id];
 			log('running ${id.id}: $cmd');
-			// output.write('+ $cmd\n');
+			output.write('+ $cmd\n');
 			container.stdin.write(wcmd);
 		}
 
