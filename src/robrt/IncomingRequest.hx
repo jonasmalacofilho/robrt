@@ -55,8 +55,7 @@ class IncomingRequest {
 		if (err != null) {
 			log('Error parsing request: $err');
 			res.writeHead(400, { "Content-Type" : "text/plain" });
-			@await res.end('ERROR: $err\n');
-			return;
+			res.end('ERROR: $err\n');
 		}
 		log('DELIVERY: ${hook.delivery}');
 
@@ -68,8 +67,7 @@ class IncomingRequest {
 		if (candidates.length == 0) {
 			log("no signature matches");
 			res.writeHead(404);
-			@await res.end();
-			return;
+			res.end();
 		}
 
 		var delivery = hook.parse();
@@ -80,12 +78,13 @@ class IncomingRequest {
 		if (candidates.length == 0) {
 			log("no repository matches");
 			res.writeHead(404);
-			@await res.end();
+			res.end();
+			return;
 		}
 		log("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
 		res.writeHead(202, { "Content-Type" : "text/plain" });
-		@await res.end('Accepted, starting build id $buildId\n');
+		res.end('Accepted, starting build id $buildId\n');
 
 		switch (delivery.event) {
 		case GitHubPing(e):  // done, NOOP
@@ -96,15 +95,16 @@ class IncomingRequest {
 			if (e.deleted) {
 				log('action: deleted $branch');
 				log("TODO delete");
-				return;
-			}
-
-			log('action: ${e.created?"created":"pushed"} $branch');
-			for (repo in candidates) {
-				var build = new PushBuild(this, repo, base);
-				var status = @await build.run();
-				if (status != 200)
-					return;
+			} else {
+				log('action: ${e.created?"created":"pushed"} $branch');
+				for (repo in candidates) {
+					var build = new PushBuild(this, repo, base);
+					var status = @await build.run();
+					if (status != 200) {
+						log('build failed with $status');
+						return;
+					}
+				}
 			}
 		case GitHubPullRequest(e):
 			switch (e.action) {
@@ -117,8 +117,10 @@ class IncomingRequest {
 				for (repo in candidates) {
 					var build = new PullRequestBuild(this, repo, base, pr);
 					var status = @await build.run();
-					if (status != 200)
+					if (status != 200) {
+						log('build failed with $status');
 						return;
+					}
 				}
 			}
 		}
@@ -134,6 +136,7 @@ class IncomingRequest {
 		var r = new IncomingRequest(config, req, res);
 		trace('${req.method} ${req.url} -> [${r.buildId}]');
 		r.execute(function () {
+			// TODO make the server shutdown wait for this
 			r.log('Done');
 		});
 	}
