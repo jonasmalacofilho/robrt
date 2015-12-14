@@ -226,15 +226,17 @@ class PushBuild {
 				'$OutPath=$expDir'
 			],
 			Cmd : "bash",
-			Mounts : [
-				{ Source : buildDir.dir.repository, Destination : repoDir },
-				{ Source : buildDir.dir.to_export, Destination : expDir }
-			],
 			AttachStdin : true,
 			AttachStdout : true,
 			AttachStderr : true,
 			OpenStdin : true,
-			Tty : false
+			Tty : false,
+			HostConfig : {
+				Binds : [
+					'${buildDir.dir.repository}:$repoDir',
+					'${buildDir.dir.to_export}:$expDir',
+				]
+			}
 		});
 		if (err != null) {
 			log(err);
