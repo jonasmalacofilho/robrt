@@ -60,18 +60,21 @@ class PushBuild {
 	{
 		var gen = "";
 		var pat = ~/\$([a-z]+)/g;
-		while (path.length > 0) {
-			if (pat.match(path))
-				switch pat.matched(1) {
-				case "type": gen += type;
-				case "tag": gen += tag;
-				// TODO build id
-				// TODO commmit id
-				// TODO tree id
-				}
-			else
+		while (path != null) {
+			if (!pat.match(path)) {
 				gen += path;
-			path = pat.matchedLeft();
+				break;
+			}
+			gen += pat.matchedLeft();
+			switch pat.matched(1) {
+			case "type": gen += type;
+			case "tag": gen += tag;
+			case _: gen += pat.matched(0);
+			// TODO build id
+			// TODO commmit id
+			// TODO tree id
+			}
+			path = pat.matchedRight();
 		}
 		return gen;
 	}
