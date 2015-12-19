@@ -395,8 +395,7 @@ class PushBuild {
 
 		// TODO cleanup
 
-		log("ABORTING: TODO build");
-		return 501;
+		return 0;
 	}
 
 	@async function export()
@@ -406,13 +405,14 @@ class PushBuild {
 			return 200;
 		}
 
+		log("exporting");
 		var exportDir = getExportDir(repo.export_options.destination);
 		var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
 		if (err != null) {
 			log(err);
 			return 500;
 		}
-		return 200;
+		return 0;
 	}
 
 	@async public function run()
