@@ -14,10 +14,16 @@ class PullRequestBuild extends PushBuild {
 		return true;
 	}
 
+	override function getExportPath()
+		return repo.export_options.destination.pull_requests;
+
+	override function makeTags()
+		tags = [ "pr_number" => Std.string(pr.number), "build_id" => request.buildId ];
+
 	public function new(request, repo, base, pr)
 	{
-		super(request, repo, base);
 		this.pr = pr;
+		super(request, repo, base);
 	}
 }
 

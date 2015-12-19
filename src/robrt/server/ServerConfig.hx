@@ -65,7 +65,12 @@ typedef BuildOptions = {
 
 typedef ExportOptions = {
 	// export destination on the server filesystem
-	destination : String,
+	destination : {
+		?branches : String,
+		?pull_requests : String,
+		?image_creation_log : String,
+		?build_log : String
+	},
 	// only export some refs; defaults to all
 	?filter : Filter,
 	// notify this targets

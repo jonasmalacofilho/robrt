@@ -36,12 +36,11 @@ class OutputStream extends Transform<OutputStream> {
 
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
 class PushBuild {
+	var tags:Map<String,String>;
+
 	var request:IncomingRequest;
 	var repo:Repository;
 	var base:{ branch:String, commit:String };
-
-	var type:String;
-	var tag:String;
 
 	var buildDir:BuildDir;
 	var repoConf:RepoConfig;
@@ -59,20 +58,19 @@ class PushBuild {
 	function expandPath(path:String)
 	{
 		var gen = "";
-		var pat = ~/\$([a-z]+)/g;
-		while (path != null) {
+		var pat = ~/\$([a-z_]+)/g;
+		while (path.length > 0) {
 			if (!pat.match(path)) {
 				gen += path;
 				break;
 			}
 			gen += pat.matchedLeft();
-			switch pat.matched(1) {
-			case "type": gen += type;
-			case "tag": gen += tag;
-			case _: gen += pat.matched(0);
-			// TODO build id
-			// TODO commmit id
-			// TODO tree id
+			var key = pat.matched(1);
+			if (tags.exists(key)) {
+				gen += tags[key];
+			} else {
+				log('ignoring tag $$$key');
+				gen += pat.matched(0);
 			}
 			path = pat.matchedRight();
 		}
@@ -103,11 +101,6 @@ class PushBuild {
 			log('Warning: $e; kept going');
 		}
 		return dir;
-	}
-
-	function getExportDir(baseExportDir)
-	{
-		return expandPath(baseExportDir);
 	}
 
 	// TODO handle submodules
@@ -401,6 +394,9 @@ class PushBuild {
 		return 0;
 	}
 
+	function getExportPath()
+		return repo.export_options.destination.branches;
+
 	@async function export()
 	{
 		if (repoConf.export != null && !repoConf.export) {
@@ -408,15 +404,41 @@ class PushBuild {
 			return 200;
 		}
 
-		log("exporting");
-		var exportDir = getExportDir(repo.export_options.destination);
-		js.npm.MkdirDashP.mkdirSync(exportDir);
-		var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
-		if (err != null) {
-			log(err);
-			return 500;
+		if (repo.export_options.destination.image_creation_log != null) {
+			log("exporting the image creation log");
+			var dpath = expandPath(repo.export_options.destination.image_creation_log);
+			js.npm.MkdirDashP.mkdirSync(Path.dirname(dpath));
+			var err = @await copyFile(buildDir.file.docker_build, dpath);
+			if (err != null) {
+				log(err);
+				return 500;
+			}
 		}
-		return 0;
+
+		if (repo.export_options.destination.build_log != null) {
+			log("exporting the build log");
+			var bpath = expandPath(repo.export_options.destination.build_log);
+			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
+			var err = @await copyFile(buildDir.file.robrt_build_log, bpath);
+			if (err != null) {
+				log(err);
+				return 500;
+			}
+		}
+
+		var exportDir = getExportPath();
+		if (exportDir != null) {
+			log("exporting the build");
+			exportDir = expandPath(exportDir);
+			js.npm.MkdirDashP.mkdirSync(exportDir);
+			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
+			if (err != null) {
+				log(err);
+				return 500;
+			}
+		}
+
+		return 200;
 	}
 
 	@async public function run()
@@ -458,14 +480,15 @@ class PushBuild {
 		return status != 0 ? status : 200;
 	}
 
+	function makeTags()
+		tags = [ "head_branch" => base.branch, "build_id" => request.buildId ];
+
 	public function new(request, repo, base)
 	{
 		this.request = request;
 		this.repo = repo;
 		this.base = base;
-
-		type = "branches";
-		tag = base.branch;
+		makeTags();
 	}
 }
 
