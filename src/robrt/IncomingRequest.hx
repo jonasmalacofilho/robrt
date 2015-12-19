@@ -83,12 +83,14 @@ class IncomingRequest {
 		}
 		log("repository matches: " + candidates.map(function (r) return r.full_name).join(", "));
 
-		res.writeHead(202, { "Content-Type" : "text/plain" });
-		res.end('Accepted, starting build id $buildId\n');
-
 		switch (delivery.event) {
 		case GitHubPing(e):  // done, NOOP
+			res.writeHead(200);
+			res.end();
 		case GitHubPush(e):
+			res.writeHead(202, { "Content-Type" : "text/plain" });
+			res.end('Accepted, starting build id $buildId\n');
+
 			var branch = parsePushRef(e.ref);
 			var base = { branch : branch, commit : e.head_commit.id };
 
@@ -109,7 +111,12 @@ class IncomingRequest {
 		case GitHubPullRequest(e):
 			switch (e.action) {
 			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
+				res.writeHead(200);
+				res.end();
 			case Opened, Synchronize, Reopened:
+				res.writeHead(202, { "Content-Type" : "text/plain" });
+				res.end('Accepted, starting build id $buildId\n');
+
 				log('base: ${e.pull_request.base.ref}');
 				log('head: ${e.pull_request.head.ref}');
 				var base = { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha };
