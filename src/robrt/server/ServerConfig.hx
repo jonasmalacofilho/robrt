@@ -68,7 +68,7 @@ typedef ExportOptions = {
 	destination : {
 		?branches : String,
 		?pull_requests : String,
-		?image_creation_log : String,
+		// TODO ?image_creation_log : String,
 		?build_log : String
 	},
 	// only export some refs; defaults to all

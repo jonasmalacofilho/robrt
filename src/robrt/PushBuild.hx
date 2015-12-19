@@ -404,16 +404,17 @@ class PushBuild {
 			return 200;
 		}
 
-		if (repo.export_options.destination.image_creation_log != null) {
-			log("exporting the image creation log");
-			var dpath = expandPath(repo.export_options.destination.image_creation_log);
-			js.npm.MkdirDashP.mkdirSync(Path.dirname(dpath));
-			var err = @await copyFile(buildDir.file.docker_build, dpath);
-			if (err != null) {
-				log(err);
-				return 500;
-			}
-		}
+		// TODO
+		// if (repo.export_options.destination.image_creation_log != null) {
+		// 	log("exporting the image creation log");
+		// 	var dpath = expandPath(repo.export_options.destination.image_creation_log);
+		// 	js.npm.MkdirDashP.mkdirSync(Path.dirname(dpath));
+		// 	var err = @await copyFile(buildDir.file.docker_build, dpath);
+		// 	if (err != null) {
+		// 		log(err);
+		// 		return 500;
+		// 	}
+		// }
 
 		if (repo.export_options.destination.build_log != null) {
 			log("exporting the build log");
