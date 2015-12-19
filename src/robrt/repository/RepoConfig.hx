@@ -19,12 +19,9 @@ typedef BuildOptions = {
 	cmds : Array<String>
 };
 
-// TODO
-typedef ExportOptions = Dynamic;
-
 typedef RepoConfig = {
 	?prepare : PrepareOptions,
 	?build : BuildOptions,
-	?export : ExportOptions
+	?export : Bool
 }
 

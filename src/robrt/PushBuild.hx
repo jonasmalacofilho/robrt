@@ -403,13 +403,14 @@ class PushBuild {
 
 	@async function export()
 	{
-		if (repoConf.export == null) {
-			log("nothing to do; no 'export' in .robrt.json");
+		if (repoConf.export != null && !repoConf.export) {
+			log("export has been disabled in .robrt.json");
 			return 200;
 		}
 
 		log("exporting");
 		var exportDir = getExportDir(repo.export_options.destination);
+		js.npm.MkdirDashP.mkdirSync(exportDir);
 		var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
 		if (err != null) {
 			log(err);
@@ -462,6 +463,9 @@ class PushBuild {
 		this.request = request;
 		this.repo = repo;
 		this.base = base;
+
+		type = "branches";
+		tag = base.branch;
 	}
 }
 
