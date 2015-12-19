@@ -23,6 +23,7 @@
     "dockerode": "^2.2.6",
     "docopt": "^0.6.2",
     "mkdir-p": "0.0.7",
+    "ncp": "^2.0.0",
     "remove": "^0.1.5"
   },
   "scripts": {

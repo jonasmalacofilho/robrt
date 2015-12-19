@@ -40,6 +40,9 @@ class PushBuild {
 	var repo:Repository;
 	var base:{ branch:String, commit:String };
 
+	var type:String;
+	var tag:String;
+
 	var buildDir:BuildDir;
 	var repoConf:RepoConfig;
 	var docker:Docker;
@@ -53,9 +56,29 @@ class PushBuild {
 		return "'" + s + "'";
 	}
 
+	function expandPath(path:String)
+	{
+		var gen = "";
+		var pat = ~/\$([a-z]+)/g;
+		while (path.length > 0) {
+			if (pat.match(path))
+				switch pat.matched(1) {
+				case "type": gen += type;
+				case "tag": gen += tag;
+				// TODO build id
+				// TODO commmit id
+				// TODO tree id
+				}
+			else
+				gen += path;
+			path = pat.matchedLeft();
+		}
+		return gen;
+	}
+
 	function getBuildDir(baseBuildDir, id):BuildDir
 	{
-		var base = Path.join(baseBuildDir, id);
+		var base = Path.join(expandPath(baseBuildDir), id);
 		var dir =  {
 			dir : {
 				base : base,
@@ -77,6 +100,11 @@ class PushBuild {
 			log('Warning: $e; kept going');
 		}
 		return dir;
+	}
+
+	function getExportDir(baseExportDir)
+	{
+		return expandPath(baseExportDir);
 	}
 
 	// TODO handle submodules
@@ -378,8 +406,13 @@ class PushBuild {
 			return 200;
 		}
 
-		log("ABORTING: TODO export");
-		return 501;
+		var exportDir = getExportDir(repo.export_options.destination);
+		var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
+		if (err != null) {
+			log(err);
+			return 500;
+		}
+		return 200;
 	}
 
 	@async public function run()
