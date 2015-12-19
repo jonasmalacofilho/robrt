@@ -56,6 +56,7 @@ class IncomingRequest {
 			log('Error parsing request: $err');
 			res.writeHead(400, { "Content-Type" : "text/plain" });
 			res.end('ERROR: $err\n');
+			return;
 		}
 		log('DELIVERY: ${hook.delivery}');
 
@@ -68,6 +69,7 @@ class IncomingRequest {
 			log("no signature matches");
 			res.writeHead(404);
 			res.end();
+			return;
 		}
 
 		var delivery = hook.parse();
