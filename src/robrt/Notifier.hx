@@ -28,7 +28,8 @@ private class BaseNotifier implements Notifier {
 				else
 					return r.matched(0);
 			});
-		// case TClass(c) if (Type.getClassName(c) == "Array"):  // TODO
+		case TClass(c) if (Type.getClassName(c) == "Array"):
+			[ for (i in (p:Array<Dynamic>)) expand(i) ];
 		case TObject:
 			var q:Dynamic = {};
 			for (f in Reflect.fields(p))
