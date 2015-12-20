@@ -17,13 +17,14 @@ class PullRequestBuild extends PushBuild {
 	override function getExportPath()
 		return repo.export_options.destination.pull_requests;
 
-	override function makeTags()
-		tags = [ "pr_number" => Std.string(pr.number), "build_id" => request.buildId ];
-
 	public function new(request, repo, base, pr)
 	{
-		this.pr = pr;
 		super(request, repo, base);
+		this.pr = pr;
+		tags["pr_number"] = Std.string(pr.number);
+		tags["pr_commit"] = pr.commit;
+		tags["pr_commit_short"] = pr.commit.substr(0, 7);
+		notifier = new robrt.Notifier.NotifierHub(tags, repo, base, pr);
 	}
 }
 

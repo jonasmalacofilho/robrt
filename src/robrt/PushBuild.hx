@@ -3,6 +3,8 @@ package robrt;
 import js.node.*;
 import js.node.stream.*;
 import js.npm.dockerode.Docker;
+import robrt.Event;
+import robrt.Notifier;
 import robrt.Variables;
 import robrt.repository.RepoConfig;
 import robrt.server.BuildDir;
@@ -36,11 +38,12 @@ class OutputStream extends Transform<OutputStream> {
 
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
 class PushBuild {
-	var tags:Map<String,String>;
-
 	var request:IncomingRequest;
 	var repo:Repository;
 	var base:{ branch:String, commit:String };
+	var notifier:NotifierHub;
+
+	var tags:Map<String,String>;
 
 	var buildDir:BuildDir;
 	var repoConf:RepoConfig;
@@ -49,6 +52,23 @@ class PushBuild {
 
 	function log(msg:Dynamic, ?pos:haxe.PosInfos)
 		request.log(msg, pos);
+
+	function notify(e:Event) {
+		log('notify: $e');
+		function fatal(err:js.Error, nn:Notifier) {
+			if (err != null)
+				log('notify: fatal failure(s) ($err)');
+		}
+		function retry(err:js.Error, nn:Notifier) {
+			if (err != null && nn != null) {
+				log('notify: failure(s) on first try, trying again ($err)');
+				nn.notify(e, fatal);
+			} else if (err != null) {
+				fatal(err, nn);
+			}
+		}
+		notifier.notify(e, retry);
+	}
 
 	static function shEscape(s:String)
 	{
@@ -316,12 +336,12 @@ class PushBuild {
 	@async function build()
 	{
 		if (repoConf.build == null) {
-			log("nothing to do; no 'build' in .robrt.json");
+			notify(ENoBuild("nothing to do; no 'build' in .robrt.json"));
 			return 200;
 		}
 
 		if (repoConf.build.cmds == null || repoConf.build.cmds.length == 0) {
-			log("nothing to do; empty build command list .robrt.json");
+			notify(ENoBuild("nothing to do; empty build command list .robrt.json"));
 			return 200;
 		}
 
@@ -381,7 +401,7 @@ class PushBuild {
 		log("spinning up container");
 		var err, zzz = @await container.container.start();
 		if (err != null) {
-			log(err);
+			notify(EBuildFailure('error starting the container: $err'));
 			return 500;
 		}
 
@@ -391,6 +411,7 @@ class PushBuild {
 
 		// TODO cleanup
 
+		notify(EBuildSuccess());
 		return 0;
 	}
 
@@ -400,7 +421,7 @@ class PushBuild {
 	@async function export()
 	{
 		if (repoConf.export != null && !repoConf.export) {
-			log("export has been disabled in .robrt.json");
+			notify(ENoExport("export has been disabled in .robrt.json"));
 			return 200;
 		}
 
@@ -422,7 +443,7 @@ class PushBuild {
 			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
 			var err = @await copyFile(buildDir.file.robrt_build_log, bpath);
 			if (err != null) {
-				log(err);
+				notify(EExportFailure('failure to export log: $err'));
 				return 500;
 			}
 		}
@@ -434,11 +455,12 @@ class PushBuild {
 			js.npm.MkdirDashP.mkdirSync(exportDir);
 			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
 			if (err != null) {
-				log(err);
+				notify(EExportFailure('failure to export: $err'));
 				return 500;
 			}
 		}
 
+		notify(EExportSuccess());
 		return 200;
 	}
 
@@ -447,12 +469,12 @@ class PushBuild {
 		log("starting build");
 
 		if (repo.build_options == null) {
-			log("nothing to do, no 'build_options'");
+			notify(ENoBuild("nothing to do, no 'build_options'"));
 			return 200;
 		} else if (repo.build_options.filter != null
 				&& repo.build_options.filter.refs != null
 				&& !Lambda.has(repo.build_options.filter.refs, base.branch)) {
-			log("branch filtered out from building");
+			notify(ENoBuild("branch filtered out from building"));
 			return 200;
 		}
 
@@ -468,12 +490,12 @@ class PushBuild {
 			return status;
 
 		if (repo.export_options == null) {
-			log("nothing to export, no 'export_options'");
+			notify(ENoExport("nothing to export, no 'export_options'"));
 			return 200;
 		} else if (repo.export_options.filter != null
 				&& repo.export_options.filter.refs != null
 				&& !Lambda.has(repo.export_options.filter.refs, base.branch)) {
-			log("branch filtered out from exporting");
+			notify(ENoExport("branch filtered out from exporting"));
 			return 200;
 		}
 
@@ -481,15 +503,24 @@ class PushBuild {
 		return status != 0 ? status : 200;
 	}
 
-	function makeTags()
-		tags = [ "head_branch" => base.branch, "build_id" => request.buildId ];
+	function customInit()
+	{
+	}
 
 	public function new(request, repo, base)
 	{
 		this.request = request;
 		this.repo = repo;
 		this.base = base;
-		makeTags();
+		tags = [
+			"user" => repo.full_name.split("/")[0],  // FIXME
+			"repo" => repo.full_name.split("/")[1],  // FIXME
+			"base_branch" => base.branch,
+			"base_commit" => base.commit,
+			"base_commit_short" => base.commit.substr(0, 7),
+			"build_id" => request.buildId
+		];
+		notifier = new NotifierHub(tags, repo, base);
 	}
 }
 
