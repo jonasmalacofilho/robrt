@@ -346,6 +346,7 @@ class PushBuild {
 		}
 
 		log("building");
+		var result = EBuildFailure();
 
 		// actual commands to execute are build from user specified
 		// ones, but with some additional contextual information that
@@ -391,6 +392,7 @@ class PushBuild {
 				log("successful build, it seems");
 				// should ultimately result in a "end" event to stdouts
 				container.container.stop({ t : 2 }, function (err, data) if (err != null) log('Warning: stop container error $err ($data)') );
+				result = EBuildSuccess();
 			}
 		}
 
@@ -411,8 +413,8 @@ class PushBuild {
 
 		// TODO cleanup
 
-		notify(EBuildSuccess());
-		return 0;
+		notify(result);
+		return result.match(EBuildSuccess(_)) ? 0 : 500;
 	}
 
 	function getExportPath()
