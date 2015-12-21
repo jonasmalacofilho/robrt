@@ -66,8 +66,89 @@ private class BaseNotifier implements Notifier {
 	}
 }
 
+class GitHubNotifier extends BaseNotifier {
+	var context:String;
+	var url:String;
+	var reqOpts:Http.HttpRequestOptions;
+
+	function defaultPayload(state, description)
+		return {
+			state : state,
+			target_url : null,
+			description : description,
+			context : context
+		}
+
+	override public function notify(event:Event, cb:js.Error->Notifier->Void)
+	{
+		if (url == null)
+			cb(null, null);
+
+		var p = switch event {
+		case ENoBuild(_), ENoExport(_): null;
+		case EBuildFailure(msg):
+			var c = getPayload(false, false);
+			if (c == null) c = defaultPayload("failure", 'Build ${tags["build_id"]} failed');
+			c;
+		case EBuildSuccess(msg):
+			var c = getPayload(false, true);
+			if (c == null) c = defaultPayload("success", 'Build success');
+			c;
+		case EExportFailure(msg):
+			var c = getPayload(true, false);
+			if (c == null) c = defaultPayload("error", 'Error found when exporting ${tags["build_id"]} error');
+			c;
+		case EExportSuccess(msg):
+			var c = getPayload(true, true);
+			if (c == null) c = defaultPayload("success", 'Successfully exported');
+			c;
+		}
+		function onRes(res:js.node.http.IncomingMessage) {
+			if (res.statusCode == 200) {
+				cb(null, null);
+				res.resume();
+			} else {
+				var buf = new StringBuf();
+				res.on("data", function (chunk:String) buf.add(chunk));
+				res.on("end", function (err) {
+					var err = new js.Error('github: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
+					cb(err, res.statusCode != 403 ? this : null);
+				});
+			}
+		}
+		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
+		req.end(haxe.Json.stringify(p));
+	}
+
+	public function new(repo:Repository, base, pr, tags, customPayload, ?context:String, ?url:String)
+	{
+		if (context == null)
+			context = "Robrt";
+		if (url == null && pr != null) {
+			var sha = pr != null ? pr.commit : base.commit;
+			url = 'https://api.github.com/repos/${repo.full_name}/statuses/$sha?access_token=${repo.oauth2_token}';
+		}
+		this.context = context;
+		this.url = url;
+		super(repo, base, pr, tags, customPayload);
+
+		if (url != null) {
+			var _url = Url.parse(url);
+			reqOpts = {
+				hostname : _url.hostname,
+				path : _url.path,
+				protocol : _url.protocol,
+				port : 443,
+				method : "POST",
+				headers : { "User-Agent" : "Robrt" }
+			}
+		}
+	}
+}
+
 class SlackNotifier extends BaseNotifier {
 	var url:String;
+	var reqOpts:Http.HttpRequestOptions;
 
 	function defaultText(prefix, msg)
 	{
@@ -100,31 +181,32 @@ class SlackNotifier extends BaseNotifier {
 			if (c == null) c = defaultText("Export: succeeded", msg);
 			c;
 		}
-		var _url = Url.parse(url);
-		var opts:js.node.Http.HttpRequestOptions = {
-			hostname : _url.hostname,
-			path : _url.path,
-			protocol : _url.protocol,
-			port : 443,
-			method : "POST"
-		}
 		function onRes(res:js.node.http.IncomingMessage) {
-			if (res.statusCode == 200) {
+			if (res.statusCode == 200)
 				cb(null, null);
-			} else {
+			else
 				cb(new js.Error('bad status from slack: ${res.statusCode}'), this);
-			}
 			res.resume();
 		}
-		var req = Https.request(untyped opts, onRes);  // FIXME remove untyped
+		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
 		req.end(haxe.Json.stringify(p));
 	}
 
 	public function new(url, repo, base, pr, tags, customPayload)
 	{
-		super(repo, base, pr, tags, customPayload);
 		if (url == null) throw "Slack requires an url";
 		this.url = url;
+		super(repo, base, pr, tags, customPayload);
+
+		var _url = Url.parse(url);
+		reqOpts = {
+			hostname : _url.hostname,
+			path : _url.path,
+			protocol : _url.protocol,
+			port : 443,
+			method : "POST",
+			headers : { "User-Agent" : "Robrt" }
+		}
 	}
 }
 
@@ -172,14 +254,14 @@ class NotifierHub extends BaseNotifier {
 			this.notifiers = [];
 			for (t in repo.notification_targets) {
 				var name = t.name != null ? t.name : t.type;
-				var n:{ name:String, notifier:Notifier } = switch t.type {
+				var notifier = switch t.type {
 				case slack:
-					{ name : name, notifier : new SlackNotifier(t.url, repo, base, pr, tags, t.payload) };
-				case github:  // TODO
-					null;
+					new SlackNotifier(t.url, repo, base, pr, tags, t.payload);
+				case github:
+					new GitHubNotifier(repo, base, pr, tags, t.payload);
 				}
-				if (n != null)
-					this.notifiers.push(n);
+				if (notifier != null)
+					this.notifiers.push({ name:name, notifier:notifier });
 			}
 		} else {
 			this.notifiers = [];
