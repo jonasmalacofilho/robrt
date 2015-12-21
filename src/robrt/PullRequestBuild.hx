@@ -6,9 +6,14 @@ import js.node.*;
 class PullRequestBuild extends PushBuild {
 	var pr:{ number:Int, commit:String };
 
+	function delay(dur:Int, cb:Void->Void)
+		js.Node.setTimeout(cb, dur);
+
 	@async override function prepareRepository()
 	{
 		log("cloning", [EOpeningRepo]);
+		log("waiting 1s for pull/_/head to be available");
+		@await delay(1000);
 		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, pr, repo.oauth2_token);
 		if (!cloned) {
 			log("repository error", [ERepositoryError]);
