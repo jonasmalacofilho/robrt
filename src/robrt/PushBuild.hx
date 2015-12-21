@@ -40,7 +40,7 @@ class OutputStream extends Transform<OutputStream> {
 class PushBuild {
 	var request:IncomingRequest;
 	var repo:Repository;
-	var base:{ branch:String, commit:String };
+	var base:{ branch:String, ?commit:String };
 	var notifier:NotifierHub;
 
 	var tags:Map<String,String>;
@@ -130,7 +130,7 @@ class PushBuild {
 
 	// TODO handle submodules
 	// TODO prevent git_terminal_prompt to /dev/tty (might be related to GIT_TERMINAL_PROMPT)
-	@async function openRepo(fullName:String, dest:String, base:{ branch:String, commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
+	@async function openRepo(fullName:String, dest:String, base:{ branch:String, ?commit:String }, ?pr:{ number:Int, commit:String }, ?token:String):Bool
 	{
 		var url = 'https://github.com/$fullName';
 		// $token would sufice, but $token:$token prevents git from asking for a password on /dev/tty
@@ -139,11 +139,16 @@ class PushBuild {
 		// clone and checkout the specified commit
 		// for homogeneity with `pr != null` reset the `base.branch` to `base.commit`
 		// (this ensures that we're not building some more recent version of the branch by accident)
-		var commands = [
-			'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest',  // TODO --depth 1
-			'git -C $dest checkout --quiet --force ${base.commit}',  // TODO fallback because of --depth 1
-			'git -C $dest reset --quiet --hard ${base.commit}'
-		];
+		var commands = [ 'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest' ];  // TODO --depth 1
+		if (base.commit != null) {
+			// reset the `base.branch` to `base.commit`
+			// (this ensures that we're not building some more recent version of the branch by accident)
+			commands = commands.concat([
+				'git -C $dest checkout --quiet --force ${base.commit}',  // TODO fallback because of --depth 1
+				'git -C $dest reset --quiet --hard ${base.commit}'
+			]);
+		}
+		// TODO log current head
 		if (pr != null) {
 			// fetch the pull request base and branch from the specified base commit
 			// (this ensures that we're not building some more recent version of the PR by accident)
@@ -308,7 +313,7 @@ class PushBuild {
 
 	@async function prepareRepository()
 	{
-		log("cloning");
+		log("cloning", [EOpeningRepo]);
 		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, repo.oauth2_token);
 		if (!cloned) {
 			log("repository error", [ERepositoryError]);
@@ -319,7 +324,6 @@ class PushBuild {
 
 	@async function prepareBuild()
 	{
-		log("preparing", [EPreparing]);
 		buildDir = getBuildDir(repo.build_options.directory, request.buildId);
 
 		var ok = @await prepareRepository();
@@ -335,7 +339,7 @@ class PushBuild {
 			return 200;
 		}
 
-		log("preparing");
+		log("preparing", [EPreparing]);
 		container = @await prepareContainer(repo.full_name, false);
 		if (container == null) {
 			log("FAILED: could not create container", [EPrepareError]);
@@ -527,10 +531,12 @@ class PushBuild {
 			"user" => repo.full_name.split("/")[0],  // FIXME
 			"repo" => repo.full_name.split("/")[1],  // FIXME
 			"base_branch" => base.branch,
-			"base_commit" => base.commit,
-			"base_commit_short" => base.commit.substr(0, 7),
 			"build_id" => request.buildId
 		];
+		if (base.commit != null) {
+			tags["base_commit"] = base.commit;
+			tags["base_commit_short"] = base.commit.substr(0, 7);
+		}
 		notifier = new NotifierHub(tags, repo, base);
 	}
 }

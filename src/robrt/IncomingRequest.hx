@@ -122,9 +122,9 @@ class IncomingRequest {
 				res.writeHead(202, { "Content-Type" : "text/plain" });
 				res.end('Accepted, starting build id $buildId\n');
 
-				log('base: ${e.pull_request.base.ref}');
-				log('head: ${e.pull_request.head.ref}');
-				var base = { branch : e.pull_request.base.ref, commit : e.pull_request.base.sha };
+				log('base: ${e.pull_request.base.repo.full_name}:${e.pull_request.base.ref}');
+				log('head: ${e.pull_request.head.repo.full_name}:${e.pull_request.head.ref} (${e.pull_request.head.sha}');
+				var base = { branch : e.pull_request.base.ref };
 				var pr = { number : e.number, commit : e.pull_request.head.sha };
 				for (repo in candidates) {
 					var build = new PullRequestBuild(this, repo, base, pr);

@@ -8,12 +8,13 @@ class PullRequestBuild extends PushBuild {
 
 	@async override function prepareRepository()
 	{
-		log("cloning");
+		log("cloning", [EOpeningRepo]);
 		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, pr, repo.oauth2_token);
 		if (!cloned) {
 			log("repository error", [ERepositoryError]);
 			return false;
 		}
+		log("merging");
 		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --no-commit pull/${pr.number}/head');
 		if (err != null) {
 			log('ERR: $err', [EFailedMerge]);

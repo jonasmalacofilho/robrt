@@ -3,9 +3,11 @@ package robrt;
 @:enum abstract Event(String) {
 	var EStarted = "started";
 
-	var EPreparing = "preparing";
+	var EOpeningRepo = "opening-repo";
 	var ERepositoryError = "repository-error";
 	var EFailedMerge = "failed-merge";
+
+	var EPreparing = "preparing";
 	var EInvalidRepoConf = "invalid-repo_conf";
 	var ENoRepoPrepare = "no-repo-prepare";
 	var EPrepareError = "prepare-error";
