@@ -137,16 +137,16 @@ class PushBuild {
 		// for homogeneity with `pr != null` reset the `base.branch` to `base.commit`
 		// (this ensures that we're not building some more recent version of the branch by accident)
 		var commands = [
-			'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest',
-			'git -C $dest checkout --quiet --force ${base.commit}',
+			'git clone --quiet --branch ${shEscape(base.branch)} $authUrl $dest',  // TODO --depth 1
+			'git -C $dest checkout --quiet --force ${base.commit}',  // TODO fallback because of --depth 1
 			'git -C $dest reset --quiet --hard ${base.commit}'
 		];
 		if (pr != null) {
 			// fetch the pull request base and branch from the specified base commit
 			// (this ensures that we're not building some more recent version of the PR by accident)
 			commands = commands.concat([
-				'git -C $dest fetch --quiet origin pull/${pr.number}/base',
-				'git -C $dest branch --quiet pull/${pr.number}/base ${pr.commit}'
+				'git -C $dest fetch --quiet origin pull/${pr.number}/head',
+				'git -C $dest branch --quiet pull/${pr.number}/head ${pr.commit}'
 			]);
 		}
 		// cleanup the auth token
