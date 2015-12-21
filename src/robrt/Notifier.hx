@@ -75,19 +75,19 @@ class SlackNotifier extends BaseNotifier {
 		case ENoBuild(_), ENoExport(_): null;
 		case EBuildFailure(msg):
 			var c = getPayload(false, false);
-			if (c == null) { text : "build failed" + msg != null ? ' ($msg)' : "" };
+			if (c == null) c = { text : "build failed " + (msg != null ? ' ($msg)' : "") };
 			c;
 		case EBuildSuccess(msg):
 			var c = getPayload(false, true);
-			if (c == null) { text : "build success" + msg != null ? ' ($msg)' : "" };
+			if (c == null) c = { text : "build success " + (msg != null ? ' ($msg)' : "") };
 			c;
 		case EExportFailure(msg):
 			var c = getPayload(true, false);
-			if (c == null) { text : "export failed" + msg != null ? ' ($msg)' : "" };
+			if (c == null) c = { text : "export failed " + (msg != null ? ' ($msg)' : "") };
 			c;
 		case EExportSuccess(msg):
 			var c = getPayload(true, true);
-			if (c == null) { text : "export success" + msg != null ? ' ($msg)' : "" };
+			if (c == null) c = { text : "export success " + (msg != null ? ' ($msg)' : "") };
 			c;
 		}
 		var _url = Url.parse(url);
@@ -99,14 +99,14 @@ class SlackNotifier extends BaseNotifier {
 			method : "POST"
 		}
 		function onRes(res:js.node.http.IncomingMessage) {
-			// FIXME make sure the cb fires
-			if (res.statusCode == 200)
+			if (res.statusCode == 200) {
 				cb(null, null);
-			else
+			} else {
 				cb(new js.Error('bad status from slack: ${res.statusCode}'), this);
+			}
+			res.resume();
 		}
 		var req = Https.request(untyped opts, onRes);  // FIXME remove untyped
-		req.on("error", cb.bind(_, this));  // FIXME make sure the cb fires
 		req.end(haxe.Json.stringify(p));
 	}
 
@@ -147,22 +147,9 @@ class NotifierHub extends BaseNotifier {
 
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
-		var errors = [];
-		for (n in notifiers) if (shouldSend(event, n.name))
-			n.notifier.notify(event, function (e, r) {
-				if (e != null)
-					errors.push({ e:e, n:{ name:n.name, notifier:r }});
-			});
-		if (errors.length > 0) {
-			var msg = [ for (e in errors) e.e ].join("; ");
-			var retry = [ for (e in errors) if (e.n.notifier != null) e.n ];
-			if (retry.length > 0)
-				cb(new js.Error(msg), new NotifierHub(tags, repo, base, pr, retry));
-			else
-				cb(new js.Error(msg), null);
-		} else {
-			cb(null, null);
-		}
+		for (n in notifiers)
+			if (shouldSend(event, n.name))
+				n.notifier.notify(event, cb);
 	}
 
 	public function new(tags, repo, base, ?pr, ?notifiers)

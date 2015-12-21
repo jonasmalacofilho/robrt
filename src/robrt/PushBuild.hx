@@ -60,10 +60,12 @@ class PushBuild {
 				log('notify: fatal failure(s) ($err)');
 		}
 		function retry(err:js.Error, nn:Notifier) {
-			if (err != null && nn != null) {
+			if (err == null)
+				return;
+			if (nn != null) {
 				log('notify: failure(s) on first try, trying again ($err)');
 				nn.notify(e, fatal);
-			} else if (err != null) {
+			} else {
 				fatal(err, nn);
 			}
 		}
