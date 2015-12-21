@@ -435,16 +435,14 @@ class PushBuild {
 	function getExportPath()
 		return repo.export_options.destination.branches;
 
-	@async function export()
+	@async function export(?only:{ ?buildLog:Bool })
 	{
 		if (repoConf.export != null && !repoConf.export) {
 			log("export has been disabled in .robrt.json");  // notify something?
 			return 200;
 		}
-		log("exporting", [EExporting]);
 
 		// TODO
-		// if (repo.export_options.destination.image_creation_log != null) {
 		// 	log("exporting the image creation log");
 		// 	var dpath = expandPath(repo.export_options.destination.image_creation_log);
 		// 	js.npm.MkdirDashP.mkdirSync(Path.dirname(dpath));
@@ -453,9 +451,8 @@ class PushBuild {
 		// 		log(err);
 		// 		return 500;
 		// 	}
-		// }
 
-		if (repo.export_options.destination.build_log != null) {
+		if ((only == null || only.buildLog) && repo.export_options.destination.build_log != null) {
 			log("exporting the build log");
 			var bpath = expandPath(repo.export_options.destination.build_log);
 			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
@@ -467,7 +464,8 @@ class PushBuild {
 		}
 
 		var exportDir = getExportPath();
-		if (exportDir != null) {
+		if (only == null && exportDir != null) {
+			log("exporting", [EExporting]);
 			log("exporting the build");
 			exportDir = expandPath(exportDir);
 			js.npm.MkdirDashP.mkdirSync(exportDir);
@@ -476,10 +474,11 @@ class PushBuild {
 				log('failure to export: $err', [EExportError]);
 				return 500;
 			}
+			log("export successfull", [EExportSuccess]);
+			return 200;
 		}
 
-		log("export successfull", [EExportSuccess]);
-		return 200;
+		return 500;
 	}
 
 	@async public function run()
@@ -499,13 +498,12 @@ class PushBuild {
 		docker = new Docker();
 
 		var status = @await prepareBuild();
-		if (status == 0)
-			status = @await build();
-
-		// TODO close cnx to docker
-
 		if (status != 0)
 			return status;
+
+		status = @await build();
+
+		// TODO close cnx to docker
 
 		if (repo.export_options == null) {
 			log("nothing to export, no 'export_options'", [ENoExport]);
@@ -517,9 +515,13 @@ class PushBuild {
 			return 200;
 		}
 
-		status = @await export();
-		log('finished with $status', [EDone]);
-		return status != 0 ? status : 200;
+		status = @await export({ buildLog : true });
+		if (status == 0 || status == 200) {
+			log('finished with $status', [EDone]);
+			return 200;
+		} else {
+			return status;
+		}
 	}
 
 	public function new(request, repo, base)
