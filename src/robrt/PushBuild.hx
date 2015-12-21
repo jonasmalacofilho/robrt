@@ -50,26 +50,29 @@ class PushBuild {
 	var docker:Docker;
 	var container:{ container : Container, stdouts:Readable<Dynamic>, stdin:Writable<Dynamic> };
 
-	function log(msg:Dynamic, ?pos:haxe.PosInfos)
+	function log(msg:Dynamic, ?events:Array<Event>, ?pos:haxe.PosInfos)
+	{
 		request.log(msg, pos);
-
-	function notify(e:Event) {
-		log('notify: $e');
-		function fatal(err:js.Error, nn:Notifier) {
-			if (err != null)
-				log('notify: fatal failure(s) ($err)');
-		}
-		function retry(err:js.Error, nn:Notifier) {
-			if (err == null)
-				return;
-			if (nn != null) {
-				log('notify: failure(s) on first try, trying again ($err)');
-				nn.notify(e, fatal);
-			} else {
-				fatal(err, nn);
+		if (events == null || events.length == 0)
+			return;
+		for (e in events) {
+			request.log('notify: $e');
+			function fatal(err:js.Error, nn:Notifier) {
+				if (err != null)
+					log('notify: fatal failure(s) ($err)');
 			}
+			function retry(err:js.Error, nn:Notifier) {
+				if (err == null)
+					return;
+				if (nn != null) {
+					log('notify: failure(s) on first try, trying again ($err)');
+					nn.notify(e, fatal);
+				} else {
+					fatal(err, nn);
+				}
+			}
+			notifier.notify(e, retry);
 		}
-		notifier.notify(e, retry);
 	}
 
 	static function shEscape(s:String)
@@ -338,17 +341,17 @@ class PushBuild {
 	@async function build()
 	{
 		if (repoConf.build == null) {
-			notify(ENoBuild("nothing to do; no 'build' in .robrt.json"));
+			log("nothing to do; no 'build' in .robrt.json", [ENoBuild]);
 			return 200;
 		}
 
 		if (repoConf.build.cmds == null || repoConf.build.cmds.length == 0) {
-			notify(ENoBuild("nothing to do; empty build command list .robrt.json"));
+			log("nothing to do; empty build command list .robrt.json", [ENoBuild]);
 			return 200;
 		}
 
 		log("building");
-		var result = EBuildFailure();
+		var result = EBuildFailure;
 
 		// actual commands to execute are build from user specified
 		// ones, but with some additional contextual information that
@@ -394,7 +397,7 @@ class PushBuild {
 				log("successful build, it seems");
 				// should ultimately result in a "end" event to stdouts
 				container.container.stop({ t : 2 }, function (err, data) if (err != null) log('Warning: stop container error $err ($data)') );
-				result = EBuildSuccess();
+				result = EBuildSuccess;
 			}
 		}
 
@@ -405,7 +408,7 @@ class PushBuild {
 		log("spinning up container");
 		var err, zzz = @await container.container.start();
 		if (err != null) {
-			notify(EBuildFailure('error starting the container: $err'));
+			log('error starting the container: $err', [EBuildFailure]);
 			return 500;
 		}
 
@@ -415,8 +418,11 @@ class PushBuild {
 
 		// TODO cleanup
 
-		notify(result);
-		return result.match(EBuildSuccess(_)) ? 0 : 500;
+		log("build successfull", []);
+		return switch result {
+		case EBuildSuccess : 0;
+		case _: 500;
+		}
 	}
 
 	function getExportPath()
@@ -425,7 +431,7 @@ class PushBuild {
 	@async function export()
 	{
 		if (repoConf.export != null && !repoConf.export) {
-			notify(ENoExport("export has been disabled in .robrt.json"));
+			log("export has been disabled in .robrt.json", [ENoExport]);
 			return 200;
 		}
 
@@ -447,7 +453,7 @@ class PushBuild {
 			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
 			var err = @await copyFile(buildDir.file.robrt_build_log, bpath);
 			if (err != null) {
-				notify(EExportFailure('failure to export log: $err'));
+				log('failure to export log: $err', [EExportError]);
 				return 500;
 			}
 		}
@@ -459,12 +465,12 @@ class PushBuild {
 			js.npm.MkdirDashP.mkdirSync(exportDir);
 			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
 			if (err != null) {
-				notify(EExportFailure('failure to export: $err'));
+				log('failure to export: $err', [EExportError]);
 				return 500;
 			}
 		}
 
-		notify(EExportSuccess());
+		log("export successfull", [EExportSuccess]);
 		return 200;
 	}
 
@@ -473,12 +479,12 @@ class PushBuild {
 		log("starting build");
 
 		if (repo.build_options == null) {
-			notify(ENoBuild("nothing to do, no 'build_options'"));
+			log("nothing to do, no 'build_options'", [ENoBuild]);
 			return 200;
 		} else if (repo.build_options.filter != null
 				&& repo.build_options.filter.refs != null
 				&& !Lambda.has(repo.build_options.filter.refs, base.branch)) {
-			notify(ENoBuild("branch filtered out from building"));
+			log("branch filtered out from building", [ENoBuild]);
 			return 200;
 		}
 
@@ -494,12 +500,12 @@ class PushBuild {
 			return status;
 
 		if (repo.export_options == null) {
-			notify(ENoExport("nothing to export, no 'export_options'"));
+			log("nothing to export, no 'export_options'", [ENoExport]);
 			return 200;
 		} else if (repo.export_options.filter != null
 				&& repo.export_options.filter.refs != null
 				&& !Lambda.has(repo.export_options.filter.refs, base.branch)) {
-			notify(ENoExport("branch filtered out from exporting"));
+			log("branch filtered out from exporting", [ENoExport]);
 			return 200;
 		}
 

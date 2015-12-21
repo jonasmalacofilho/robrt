@@ -40,15 +40,19 @@ private class BaseNotifier implements Notifier {
 		}
 	}
 
-	function getPayload(isExport, isSuccess):Null<Dynamic>
+	function getPayload(event:Event):Null<Dynamic>
 	{
-		if (customPayload == null) return null;
-		var a = pr != null ? customPayload.pull_requests : customPayload.branches;
-		if (a == null) return null;
-		var b = isExport ? a.export : a.build;
-		if (b == null) return null;
-		var c = isSuccess ? b.success : b.failure;
-		return expand(c);
+		if (customPayload == null)
+			return null;
+		var ps = pr == null ? customPayload.branch_builds : customPayload.pull_requests;
+		if (ps == null)
+			return null;
+		for (p in ps) {
+			var f = Lambda.find(p.events, function (e) return e == event);
+			if (f != null)
+				return p.payload;
+		}
+		return null;
 	}
 
 	public function notify(event:Event, cb:js.Error->Notifier->Void)
@@ -71,38 +75,20 @@ class GitHubNotifier extends BaseNotifier {
 	var url:String;
 	var reqOpts:Http.HttpRequestOptions;
 
-	function defaultPayload(state, description)
-		return {
-			state : state,
-			target_url : null,
-			description : description,
-			context : context
-		}
-
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
-		if (url == null)
+		if (url == null) {
 			cb(null, null);
-
-		var p = switch event {
-		case ENoBuild(_), ENoExport(_): null;
-		case EBuildFailure(msg):
-			var c = getPayload(false, false);
-			if (c == null) c = defaultPayload("failure", 'Build ${tags["build_id"]} failed');
-			c;
-		case EBuildSuccess(msg):
-			var c = getPayload(false, true);
-			if (c == null) c = defaultPayload("success", 'Build success');
-			c;
-		case EExportFailure(msg):
-			var c = getPayload(true, false);
-			if (c == null) c = defaultPayload("error", 'Error found when exporting ${tags["build_id"]} error');
-			c;
-		case EExportSuccess(msg):
-			var c = getPayload(true, true);
-			if (c == null) c = defaultPayload("success", 'Successfully exported');
-			c;
+			return;
 		}
+
+		var p = getPayload(event);
+		if (p == null) {
+			cb(null, null);
+			return;
+		}
+
+		var json = haxe.Json.stringify(p);
 		function onRes(res:js.node.http.IncomingMessage) {
 			if (res.statusCode == 200) {
 				cb(null, null);
@@ -117,7 +103,7 @@ class GitHubNotifier extends BaseNotifier {
 			}
 		}
 		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
-		req.end(haxe.Json.stringify(p));
+		req.end(json);
 	}
 
 	public function new(repo:Repository, base, pr, tags, customPayload, ?context:String, ?url:String)
@@ -150,46 +136,30 @@ class SlackNotifier extends BaseNotifier {
 	var url:String;
 	var reqOpts:Http.HttpRequestOptions;
 
-	function defaultText(prefix, msg)
-	{
-		msg = msg != null ? 'msg=$msg' : "";
-		var keys = [ for (k in tags.keys()) k ];
-		keys.sort(Reflect.compare);
-		var props = [ for (k in keys) '$k=${tags[k]}' ].join(" ");
-		return { text : '$prefix $msg $props' };
-
-	}
-
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
-		var p = switch event {
-		case ENoBuild(_), ENoExport(_): null;
-		case EBuildFailure(msg):
-			var c = getPayload(false, false);
-			if (c == null) c = defaultText("Build: FAILED", msg);
-			c;
-		case EBuildSuccess(msg):
-			var c = getPayload(false, true);
-			if (c == null) c = defaultText("Build: succeeded", msg);
-			c;
-		case EExportFailure(msg):
-			var c = getPayload(true, false);
-			if (c == null) c = defaultText("Export: FAILED", msg);
-			c;
-		case EExportSuccess(msg):
-			var c = getPayload(true, true);
-			if (c == null) c = defaultText("Export: succeeded", msg);
-			c;
+		var p = getPayload(event);
+		if (p == null) {
+			cb(null, null);
+			return;
 		}
+
+		var json = haxe.Json.stringify(p);
 		function onRes(res:js.node.http.IncomingMessage) {
-			if (res.statusCode == 200)
+			if (res.statusCode == 200) {
 				cb(null, null);
-			else
-				cb(new js.Error('bad status from slack: ${res.statusCode}'), this);
-			res.resume();
+				res.resume();
+			} else {
+				var buf = new StringBuf();
+				res.on("data", function (chunk:String) buf.add(chunk));
+				res.on("end", function (err) {
+					var err = new js.Error('slack: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
+					cb(err, res.statusCode != 403 ? this : null);
+				});
+			}
 		}
 		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
-		req.end(haxe.Json.stringify(p));
+		req.end(json);
 	}
 
 	public function new(url, repo, base, pr, tags, customPayload)
@@ -213,35 +183,10 @@ class SlackNotifier extends BaseNotifier {
 class NotifierHub extends BaseNotifier {
 	var notifiers:Array<{ name:String, notifier:Notifier }>;
 
-	function shouldSend(event:Event, name:String)
-	{
-		return switch event {
-		case ENoBuild(_), ENoExport(_):
-			false;
-		case EBuildFailure(_), EBuildSuccess(_):
-			if (repo.build_options == null || repo.build_options.notify == null)
-				return false;
-			var h = Lambda.find(repo.build_options.notify, function (h) return h.target == name);
-			if (h == null)
-				return false;
-			var t = event.match(EBuildSuccess(_)) ? success : failure;
-			h.events == null || Lambda.has(h.events, t);
-		case EExportFailure(_), EExportSuccess(_):
-			if (repo.export_options == null || repo.export_options.notify == null)
-				return false;
-			var h = Lambda.find(repo.export_options.notify, function (h) return h.target == name);
-			if (h == null)
-				return false;
-			var t = event.match(EExportSuccess(_)) ? success : failure;
-			h.events == null || Lambda.has(h.events, t);
-		}
-	}
-
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
 		for (n in notifiers)
-			if (shouldSend(event, n.name))
-				n.notifier.notify(event, cb);
+			n.notifier.notify(event, cb);
 	}
 
 	public function new(tags, repo, base, ?pr, ?notifiers)
@@ -255,10 +200,10 @@ class NotifierHub extends BaseNotifier {
 			for (t in repo.notification_targets) {
 				var name = t.name != null ? t.name : t.type;
 				var notifier = switch t.type {
-				case slack:
-					new SlackNotifier(t.url, repo, base, pr, tags, t.payload);
-				case github:
-					new GitHubNotifier(repo, base, pr, tags, t.payload);
+				case Slack:
+					new SlackNotifier(t.url, repo, base, pr, tags, t.customPayload);
+				case GitHub:
+					new GitHubNotifier(repo, base, pr, tags, t.customPayload);
 				}
 				if (notifier != null)
 					this.notifiers.push({ name:name, notifier:notifier });

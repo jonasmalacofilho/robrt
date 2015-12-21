@@ -1,62 +1,47 @@
 package robrt.server;
 
 /**
-	  Notification events.
- **/
-@:enum abstract NotificationEvent(String) {
-	// if the phase (build/export) succeeded
-	var success = "success";
-	// if the phase (build/export) failed
-	var failure = "failure";
-}
-
-/**
-	  Supported notification types.
+	Supported notification types.
  **/
 @:enum abstract NotificationType(String) to String {
 	// GitHub commit statues; defaults to linking to logs
-	var github = "github";
+	var GitHub = "github";
 	// Slack incomming webhook; by default, only links to the logs on failures
-	var slack = "slack";
+	var Slack = "slack";
 	// TODO email
 }
 
 /**
-	  Notification handler.
+	Notification handler.
 
-	  Send notifications to a given target.
+	Send notifications to a given target.
  **/
 typedef NotificationHandler = {
 	// target name
 	target : String,
 	// filter only some events; defaults to any
-	?events : Null<Array<NotificationEvent>>,
+	?events : Null<Array<Event>>,
 	// include the logs; defaults are dependent on target type
 	// ?logs : Null<Bool>
 }
 
 typedef CustomPayload = {
-	?branches : {
-		?build : { ?success : Dynamic, ?failure : Dynamic },
-		?export : { ?success : Dynamic, ?failure : Dynamic },
-	},
-	?pull_requests : {
-		?build : { ?success : Dynamic, ?failure : Dynamic },
-		?export : { ?success : Dynamic, ?failure : Dynamic },
-	}
+	?branch_builds : Array<{ ?events:Array<Event>, payload:Dynamic }>,
+	?pull_requests : Array<{ ?events:Array<Event>, payload:Dynamic }>
 }
+
 /**
-	  Notification target.
+	Notification target.
  **/
 typedef NotificationTarget = {
 	// target type
 	type : NotificationType,
+	// custom payload
+	customPayload : CustomPayload,
 	// name for this target; defaults to type
 	?name : String,
 	// target url; not neccessary for some targets
 	?url : String,
-	// custom payload
-	?payload : CustomPayload
 }
 
 typedef Filter = {
@@ -90,7 +75,7 @@ typedef ExportOptions = {
 }
 
 /**
-	  Repository.
+	Repository.
  **/
 typedef Repository = {
 	// repository full name: foo/bar
@@ -108,7 +93,7 @@ typedef Repository = {
 }
 
 /**
-	  Server configuration.
+	Server configuration.
  **/
 typedef ServerConfig = {
 	repositories : Array<Repository>
