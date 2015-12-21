@@ -5,6 +5,7 @@ package robrt;
 
 	var EPreparing = "preparing";
 	var ERepositoryError = "repository-error";
+	var EFailedMerge = "failed-merge";
 	var EInvalidRepoConf = "invalid-repo_conf";
 	var ENoRepoPrepare = "no-repo-prepare";
 	var EPrepareError = "prepare-error";

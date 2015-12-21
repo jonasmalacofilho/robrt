@@ -10,11 +10,13 @@ class PullRequestBuild extends PushBuild {
 	{
 		log("cloning");
 		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, pr, repo.oauth2_token);
-		if (!cloned)
+		if (!cloned) {
+			log("repository error", [ERepositoryError]);
 			return false;
+		}
 		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --no-commit pull/${pr.number}/head');
 		if (err != null) {
-			log('ERR: $err');
+			log('ERR: $err', [EFailedMerge]);
 			return false;
 		}
 		return true;

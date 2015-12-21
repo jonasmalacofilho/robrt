@@ -309,7 +309,12 @@ class PushBuild {
 	@async function prepareRepository()
 	{
 		log("cloning");
-		return @await openRepo(repo.full_name, buildDir.dir.repository, base, repo.oauth2_token);
+		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, repo.oauth2_token);
+		if (!cloned) {
+			log("repository error", [ERepositoryError]);
+			return false;
+		}
+		return true;
 	}
 
 	@async function prepareBuild()
@@ -318,10 +323,8 @@ class PushBuild {
 		buildDir = getBuildDir(repo.build_options.directory, request.buildId);
 
 		var ok = @await prepareRepository();
-		if (!ok) {
-			log("repository error", [ERepositoryError]);
+		if (!ok)
 			return 500;
-		}
 		repoConf = readRepoConfig(buildDir.dir.repository);
 		if (repoConf == null) {
 			log("Invalid .robrt.json", [EInvalidRepoConf]);
