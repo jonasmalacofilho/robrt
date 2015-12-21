@@ -4,12 +4,14 @@ package robrt;
 	var EStarted = "started";
 
 	var EPreparing = "preparing";
-	var ENoPrepare = "no-prepare";
 	var ERepositoryError = "repository-error";
+	var EInvalidRepoConf = "invalid-repo_conf";
+	var ENoRepoPrepare = "no-repo-prepare";
 	var EPrepareError = "prepare-error";
 
 	var EBuilding = "building";
 	var ENoBuild = "no-build";
+	var ENoRepoBuild = "no-repo-build";
 	var EBuildError = "build-error";
 	var EBuildFailure = "build-failure";
 

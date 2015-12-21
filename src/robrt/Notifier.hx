@@ -75,22 +75,34 @@ class GitHubNotifier extends BaseNotifier {
 	var url:String;
 	var reqOpts:Http.HttpRequestOptions;
 
-	override public function notify(event:Event, cb:js.Error->Notifier->Void)
-	{
-		if (url == null) {
-			cb(null, null);
+	var queue:Array<{ event:Event, cb:js.Error->Notifier->Void }>;
+	var running:Bool;
+
+	function pop() {
+		running = true;
+		var next = queue.shift();
+		if (next == null) {
+			running = false;
 			return;
 		}
+
+		var event = next.event;
+		var cb = next.cb;
 
 		var p = getPayload(event);
 		if (p == null) {
 			cb(null, null);
+			pop();
 			return;
 		}
 
+		if (p.context == null)
+			p.context = "Robrt";
+
 		var json = haxe.Json.stringify(p);
 		function onRes(res:js.node.http.IncomingMessage) {
-			if (res.statusCode == 200) {
+			if (res.statusCode >= 200 && res.statusCode < 300) {
+				js.Node.setInterval(pop, 500);
 				cb(null, null);
 				res.resume();
 			} else {
@@ -98,6 +110,7 @@ class GitHubNotifier extends BaseNotifier {
 				res.on("data", function (chunk:String) buf.add(chunk));
 				res.on("end", function (err) {
 					var err = new js.Error('github: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
+					js.Node.setInterval(pop, 10000);
 					cb(err, res.statusCode != 403 ? this : null);
 				});
 			}
@@ -106,8 +119,20 @@ class GitHubNotifier extends BaseNotifier {
 		req.end(json);
 	}
 
+	override public function notify(event:Event, cb:js.Error->Notifier->Void)
+	{
+		if (url == null) {
+			cb(null, null);
+			return;
+		}
+		queue.push({ event:event, cb:cb });
+		if (!running)
+			pop();
+	}
+
 	public function new(repo:Repository, base, pr, tags, customPayload, ?context:String, ?url:String)
 	{
+		queue = [];
 		if (context == null)
 			context = "Robrt";
 		if (url == null && pr != null) {

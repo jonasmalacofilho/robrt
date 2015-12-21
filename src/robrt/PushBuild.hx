@@ -65,8 +65,8 @@ class PushBuild {
 				if (err == null)
 					return;
 				if (nn != null) {
-					log('notify: failure(s) on first try, trying again ($err)');
-					nn.notify(e, fatal);
+					log('notify: failure(s) on first try, trying again ($err) in 30s');
+					js.Node.setInterval(nn.notify.bind(e, fatal), 30000);
 				} else {
 					fatal(err, nn);
 				}
@@ -314,25 +314,28 @@ class PushBuild {
 
 	@async function prepareBuild()
 	{
+		log("preparing", [EPreparing]);
 		buildDir = getBuildDir(repo.build_options.directory, request.buildId);
 
 		var ok = @await prepareRepository();
-		if (!ok)
+		if (!ok) {
+			log("repository error", [ERepositoryError]);
 			return 500;
+		}
 		repoConf = readRepoConfig(buildDir.dir.repository);
 		if (repoConf == null) {
-			log("Invalid .robrt.json");
+			log("Invalid .robrt.json", [EInvalidRepoConf]);
 			return 500;
 		}
 		if (repoConf.prepare == null) {
-			log("nothing to do; no 'prepare' in .robrt.json");
+			log("nothing to do; no 'prepare' in .robrt.json", [ENoRepoPrepare]);
 			return 200;
 		}
 
 		log("preparing");
 		container = @await prepareContainer(repo.full_name, false);
 		if (container == null) {
-			log("FAILED: could not create container");
+			log("FAILED: could not create container", [EPrepareError]);
 			return 500;
 		}
 		return 0;
@@ -341,17 +344,17 @@ class PushBuild {
 	@async function build()
 	{
 		if (repoConf.build == null) {
-			log("nothing to do; no 'build' in .robrt.json", [ENoBuild]);
+			log("nothing to do; no 'build' in .robrt.json", [ENoRepoBuild]);
 			return 200;
 		}
 
 		if (repoConf.build.cmds == null || repoConf.build.cmds.length == 0) {
-			log("nothing to do; empty build command list .robrt.json", [ENoBuild]);
+			log("nothing to do; empty build command list .robrt.json", [ENoRepoBuild]);
 			return 200;
 		}
 
-		log("building");
-		var result = EBuildFailure;
+		log("building", [EBuilding]);
+		var result = 0;
 
 		// actual commands to execute are build from user specified
 		// ones, but with some additional contextual information that
@@ -387,17 +390,17 @@ class PushBuild {
 		function finished(exit:Int) {
 			log('cmd ${id.id} exited with status $exit');
 			if (exit != 0) {
-				log("ABORTING: non zero status");
+				log("ABORTING: non zero status", [EBuildFailure]);
+				result = 500;
 				// should ultimately result in a "end" event to stdouts
 				container.container.kill(function (err, data) if (err != null) log('Warning: kill container error $err ($data)') );
 			} else if (id.id + 1 < wcmds.length) {
 				// run the next command
 				run();
 			} else {
-				log("successful build, it seems");
+				log("successful build, it seems", [EBuildSuccess]);
 				// should ultimately result in a "end" event to stdouts
 				container.container.stop({ t : 2 }, function (err, data) if (err != null) log('Warning: stop container error $err ($data)') );
-				result = EBuildSuccess;
 			}
 		}
 
@@ -408,7 +411,7 @@ class PushBuild {
 		log("spinning up container");
 		var err, zzz = @await container.container.start();
 		if (err != null) {
-			log('error starting the container: $err', [EBuildFailure]);
+			log('error starting the container: $err', [EBuildError]);
 			return 500;
 		}
 
@@ -418,11 +421,8 @@ class PushBuild {
 
 		// TODO cleanup
 
-		log("build successfull", []);
-		return switch result {
-		case EBuildSuccess : 0;
-		case _: 500;
-		}
+		log("build successfull");
+		return result;
 	}
 
 	function getExportPath()
@@ -431,9 +431,10 @@ class PushBuild {
 	@async function export()
 	{
 		if (repoConf.export != null && !repoConf.export) {
-			log("export has been disabled in .robrt.json", [ENoExport]);
+			log("export has been disabled in .robrt.json");  // notify something?
 			return 200;
 		}
+		log("exporting", [EExporting]);
 
 		// TODO
 		// if (repo.export_options.destination.image_creation_log != null) {
@@ -476,7 +477,7 @@ class PushBuild {
 
 	@async public function run()
 	{
-		log("starting build");
+		log("starting build", [EStarted]);
 
 		if (repo.build_options == null) {
 			log("nothing to do, no 'build_options'", [ENoBuild]);
@@ -510,11 +511,8 @@ class PushBuild {
 		}
 
 		status = @await export();
+		log('finished with $status', [EDone]);
 		return status != 0 ? status : 200;
-	}
-
-	function customInit()
-	{
 	}
 
 	public function new(request, repo, base)
