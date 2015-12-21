@@ -50,7 +50,7 @@ private class BaseNotifier implements Notifier {
 		for (p in ps) {
 			var f = Lambda.find(p.events, function (e) return e == event);
 			if (f != null)
-				return p.payload;
+				return expand(p.payload);
 		}
 		return null;
 	}
