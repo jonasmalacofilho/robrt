@@ -468,6 +468,7 @@ class PushBuild {
 			log("exporting", [EExporting]);
 			log("exporting the build");
 			exportDir = expandPath(exportDir);
+			js.npm.Remove.removeSync(exportDir, { ignoreMissing : true });
 			js.npm.MkdirDashP.mkdirSync(exportDir);
 			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
 			if (err != null) {
