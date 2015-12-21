@@ -69,25 +69,35 @@ private class BaseNotifier implements Notifier {
 class SlackNotifier extends BaseNotifier {
 	var url:String;
 
+	function defaultText(prefix, msg)
+	{
+		msg = msg != null ? 'msg=$msg' : "";
+		var keys = [ for (k in tags.keys()) k ];
+		keys.sort(Reflect.compare);
+		var props = [ for (k in keys) '$k=${tags[k]}' ].join(" ");
+		return { text : '$prefix $msg $props' };
+
+	}
+
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
 		var p = switch event {
 		case ENoBuild(_), ENoExport(_): null;
 		case EBuildFailure(msg):
 			var c = getPayload(false, false);
-			if (c == null) c = { text : "build failed " + (msg != null ? ' ($msg)' : "") };
+			if (c == null) c = defaultText("Build: FAILED", msg);
 			c;
 		case EBuildSuccess(msg):
 			var c = getPayload(false, true);
-			if (c == null) c = { text : "build success " + (msg != null ? ' ($msg)' : "") };
+			if (c == null) c = defaultText("Build: succeeded", msg);
 			c;
 		case EExportFailure(msg):
 			var c = getPayload(true, false);
-			if (c == null) c = { text : "export failed " + (msg != null ? ' ($msg)' : "") };
+			if (c == null) c = defaultText("Export: FAILED", msg);
 			c;
 		case EExportSuccess(msg):
 			var c = getPayload(true, true);
-			if (c == null) c = { text : "export success " + (msg != null ? ' ($msg)' : "") };
+			if (c == null) c = defaultText("Export: succeeded", msg);
 			c;
 		}
 		var _url = Url.parse(url);
