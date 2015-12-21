@@ -1,5 +1,7 @@
 package robrt;
 
+import js.node.*;
+
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
 class PullRequestBuild extends PushBuild {
 	var pr:{ number:Int, commit:String };
@@ -10,7 +12,11 @@ class PullRequestBuild extends PushBuild {
 		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, repo.oauth2_token);
 		if (!cloned)
 			return false;
-		// TODO merge
+		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --no-commit pull/${pr.number}/head');
+		if (err != null) {
+			log('ERR: $err');
+			return false;
+		}
 		return true;
 	}
 
