@@ -9,7 +9,7 @@ class PullRequestBuild extends PushBuild {
 	@async override function prepareRepository()
 	{
 		log("cloning");
-		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, repo.oauth2_token);
+		var cloned = @await openRepo(repo.full_name, buildDir.dir.repository, base, pr, repo.oauth2_token);
 		if (!cloned)
 			return false;
 		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --no-commit pull/${pr.number}/head');
