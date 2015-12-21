@@ -515,7 +515,7 @@ class PushBuild {
 			return 200;
 		}
 
-		status = @await export({ buildLog : true });
+		status = @await export(status == 0 ? null : { buildLog : true });
 		if (status == 0 || status == 200) {
 			log('finished with $status', [EDone]);
 			return 200;
