@@ -78,20 +78,22 @@ class GitHubNotifier extends BaseNotifier {
 	var queue:Array<{ event:Event, cb:js.Error->Notifier->Void }>;
 	var running:Bool;
 
-	function pop() {
-		running = true;
+	function pop(?pos:haxe.PosInfos) {
+		trace('popping (source was ${pos.fileName}:${pos.lineNumber})');
 		var next = queue.shift();
 		if (next == null) {
+			trace("no more items in queue");
 			running = false;
 			return;
 		}
 
 		var event = next.event;
 		var cb = next.cb;
+		trace('dequeue "$event"');
 
 		var p = getPayload(event);
 		if (p == null) {
-			cb(null, null);
+			trace('nothing to do, will pop again immediatly (event was "$event")');
 			pop();
 			return;
 		}
@@ -102,15 +104,16 @@ class GitHubNotifier extends BaseNotifier {
 		var json = haxe.Json.stringify(p);
 		function onRes(res:js.node.http.IncomingMessage) {
 			if (res.statusCode >= 200 && res.statusCode < 300) {
-				js.Node.setInterval(pop, 500);
-				cb(null, null);
+				trace('will pop again only after 500ms (event was "$event")');
+				js.Node.setTimeout(function () pop(), 500);
 				res.resume();
 			} else {
 				var buf = new StringBuf();
 				res.on("data", function (chunk:String) buf.add(chunk));
 				res.on("end", function (err) {
 					var err = new js.Error('github: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
-					js.Node.setInterval(pop, 10000);
+					trace('will pop again only after 10000ms (event was "$event")');
+					js.Node.setTimeout(function () pop(), 10000);
 					cb(err, res.statusCode != 403 ? this : null);
 				});
 			}
@@ -121,13 +124,15 @@ class GitHubNotifier extends BaseNotifier {
 
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
-		if (url == null) {
-			cb(null, null);
+		if (url == null)
 			return;
-		}
+		trace('enqueue "$event"');
 		queue.push({ event:event, cb:cb });
-		if (!running)
+		if (!running) {
+			trace('immediatly popping');
+			running = true;
 			pop();
+		}
 	}
 
 	public function new(repo:Repository, base, pr, tags, customPayload, ?context:String, ?url:String)
@@ -164,15 +169,12 @@ class SlackNotifier extends BaseNotifier {
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
 		var p = getPayload(event);
-		if (p == null) {
-			cb(null, null);
+		if (p == null)
 			return;
-		}
 
 		var json = haxe.Json.stringify(p);
 		function onRes(res:js.node.http.IncomingMessage) {
 			if (res.statusCode == 200) {
-				cb(null, null);
 				res.resume();
 			} else {
 				var buf = new StringBuf();

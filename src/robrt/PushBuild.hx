@@ -66,7 +66,7 @@ class PushBuild {
 					return;
 				if (nn != null) {
 					log('notify: failure(s) on first try, trying again ($err) in 30s');
-					js.Node.setInterval(nn.notify.bind(e, fatal), 30000);
+					js.Node.setTimeout(nn.notify.bind(e, fatal), 30000);
 				} else {
 					fatal(err, nn);
 				}
