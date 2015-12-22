@@ -8,6 +8,7 @@ package robrt;
 	var EFailedMerge = "failed-merge";
 
 	var EPreparing = "preparing";
+	var ENoRepoConf = "no-repo-conf";
 	var EInvalidRepoConf = "invalid-repo_conf";
 	var ENoRepoPrepare = "no-repo-prepare";
 	var EPrepareError = "prepare-error";

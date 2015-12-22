@@ -334,6 +334,10 @@ class PushBuild {
 			log("Invalid .robrt.json", [EInvalidRepoConf]);
 			return 500;
 		}
+		if (Reflect.fields(repoConf).length == 0) {
+			log("No .robrt.json", [ENoRepoConf]);
+			return 200;
+		}
 		if (repoConf.prepare == null) {
 			log("nothing to do; no 'prepare' in .robrt.json", [ENoRepoPrepare]);
 			return 200;
