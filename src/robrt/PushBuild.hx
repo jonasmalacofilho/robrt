@@ -258,7 +258,7 @@ class PushBuild {
 			return null;
 		}
 
-		var imageName = 'robrt-builds:$name:${request.buildId}';
+		var imageName = 'robrt-builds/$name:${request.buildId}';
 		var err = @await buildImage(buildDir.file.docker_build, {
 			t : imageName,
 			q : true,
