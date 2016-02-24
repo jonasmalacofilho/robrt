@@ -13,7 +13,7 @@ private class BaseNotifier implements Notifier {
 	var base:{ branch:String, commit:String };
 	var pr:Null<{ number:Int, commit:String }>;
 
-	var tags:Map<String,String>;
+	var tags:TagMap;
 	var customPayload:Null<CustomPayload>;
 
 	function expand(p:Dynamic):Dynamic
