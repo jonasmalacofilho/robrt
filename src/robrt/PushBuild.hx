@@ -93,6 +93,8 @@ class PushBuild {
 			var key = pat.matched(1);
 			if (tags.exists(key)) {
 				gen += tags[key];
+			} else if (StringTools.endsWith(key, "_lc") && tags.exists(key.substr(0, key.length - 2))) {
+				gen += tags[key.substr(0, key.length -2 )];
 			} else {
 				log('ignoring tag $$$key');
 				gen += pat.matched(0);
