@@ -1,16 +1,17 @@
--main Robrt
 -cp src
 -D use_rtti_doc
 
 --each
 
 -js robrt.js
+-main Robrt
 -lib hxnodejs
 -lib jmf-npm-externs
 -lib continuation
 
-# disabled during the development of robrt
-# --next
-#
-# -neko robrt.n
+--next
+
+--interp
+-main unit.Cross
+-lib utest
 
