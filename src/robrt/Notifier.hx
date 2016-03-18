@@ -140,7 +140,7 @@ class GitHubNotifier extends BaseNotifier {
 		queue = [];
 		if (context == null)
 			context = "Robrt";
-		if (url == null && pr != null) {
+		if (url == null) {
 			var sha = pr != null ? pr.commit : base.commit;
 			url = 'https://api.github.com/repos/${repo.full_name}/statuses/$sha?access_token=${repo.oauth2_token}';
 		}
