@@ -31,7 +31,50 @@ repositories.
 
 ## Repository basics
 
-TODO: repo stuff (`.robrt.json` and `.robrt.Dockerfile`)
+Similarly to Travis – and other CI systems out there – Robrt expects each tree
+to have a settings file called `.robrt.json`.  This file will give it
+instructions on which Docker image to use (or, more specifically, on how to
+build it) and which commands should be executed in that image.
+
+A very simple example:
+
+```
+{
+	"prepare" : {
+		"dockerfile" : { "type" : "path", "data" : ".robrt.Dockerfile" }
+	}, "build" : {
+		"cmds" : [
+			"cd $ROBRT_REPOSITORY_DIR",
+			"echo 'I'm a build, test or export command' > .out",
+			"cp -r .out $ROBRT_OUTPUT_DIR/echo"
+		]
+	}
+}
+```
+
+First, in the preparation stage, `.robrt.Dockerfile` will be used to build a
+corresponding Docker image.  For now, let's assume that it is a simple clone of
+a recent Linux image:
+
+```
+FROM ubuntu:latest
+```
+
+Then, in the build phase, the following will be executed:
+
+ - _cd_ into the repository directory; `ROBRT_REPOSITORY_DIR` is a standard
+   environment variable the will always point to where in that container has
+   the repository been mounted to.
+ - _echo_ a constant string to file `.out`
+ - export the `.out` file to the world, by placing it where, if so configured,
+   Robrt will let the host see it (and the host can then serve it via HTTP, for
+   instance); `ROBRT_OUTPUT_DIR` is another standard environment variable
+   pointing to where in the container has Robrt reserved some space for
+   exported data
+
+The undocumented (_we're sorry about that_) structure of `.robrt.json` can be
+seen in [`robrt.repository.RepoConfig`](robrt/repository/RepoConfig.hx).
+
 
 ## Server basics
 
