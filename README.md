@@ -1,10 +1,15 @@
 > Hi, I'm Robrt!  I'm a robot that listens to GitHub events and deploys stuff.
 
-Robrt is a simple, automated and configurable build system for projects hosted on GitHub.
+Robrt is a simple, automated and configurable build system for projects hosted
+on GitHub.
 
 It's main purpose is to provide flexible automated builds – and even
-deployments – for projects where Travis is either too expensive, or somewhat
-unpractical.
+deployments – for projects where using Travis is either too expensive, or
+somewhat unpractical.
+
+Robrt runs each build – either a pushed commit or updated pull request – in a
+Docker container; the thing is, each build can choose, or even create, the
+Docker image it will run in.
 
 
 # Usage
