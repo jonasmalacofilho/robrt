@@ -1,7 +1,7 @@
-> Hi, I'm Robrt!  I'm a robot that listens to GitHub events and deploys stuff.
-
 Robrt is a simple, automated and configurable build system for projects hosted
 on GitHub.
+
+> Hi, I'm Robrt!  I'm a robot that listens to GitHub events and deploys stuff.
 
 It's main purpose is to provide flexible automated builds – and even
 deployments – for projects where using Travis is either too expensive, or
@@ -72,7 +72,7 @@ Then, in the build phase, the following will be executed:
    pointing to where in the container has Robrt reserved some space for
    exported data
 
-The undocumented (_we're sorry about that_) structure of `.robrt.json` can be
+The undocumented (_we're sorry about that!_) structure of `.robrt.json` can be
 seen in [`robrt.repository.RepoConfig`](robrt/repository/RepoConfig.hx).
 
 
