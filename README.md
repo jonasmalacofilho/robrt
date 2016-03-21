@@ -13,6 +13,11 @@ Robrt runs each build – either a pushed commit or updated pull request – in 
 Docker container; the thing is, each build can choose, or even create, the
 Docker image it will run in.
 
+There's no UI.  Yeah, Robrt is (_still?_) geeky like that.  On the other hand,
+it can post customizable messages on Slack and add customizable commit statuses
+on GitHub (commit statuses are shown in the branch list and in each pull
+request).
+
 
 # Usage
 
@@ -31,7 +36,7 @@ exposing sensitive data to it.  Or, at the very least, untrusted users should
 not be allowed push access, and pull requests should thus be disabled in public
 repositories.
 
-## Repository basics
+## On the repository
 
 Similarly to Travis – and other CI systems out there – Robrt expects each tree
 to have a settings file called `.robrt.json`.  This file will give it
@@ -78,9 +83,19 @@ The undocumented (_we're sorry about that!_) structure of `.robrt.json` can be
 seen in [`robrt.repository.RepoConfig`](robrt/repository/RepoConfig.hx).
 
 
-## Server basics
+## On the server
 
 TODO: server stuff (`/etc/robrt` and environment variables)
+
+A running Robrt instance will read from `/etc/robrt` (or from the path
+specified in the `ROBRT_CONFIG_PATH` environment variable) to know which
+repositories to listen to and to proceed on each `push` or `pull_request`
+event.
+
+## Basics
+
+
+## Notifications
 
 
 # Build and run
