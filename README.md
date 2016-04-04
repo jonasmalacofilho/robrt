@@ -107,7 +107,7 @@ libraries:
 
  - HaxeFoundation/haxe@development
  - HaxeFoundation/hxnodejs@master
- - jonasmalacofilho/haxe-continuation@transform-later
+ - jonasmalacofilho/haxe-continuation@robrt
  - jonasmalacofilho/jmf-npm-externs@master
 
 Since we're targeting Node.js, the easiest way to have an runnable Robrt is to
