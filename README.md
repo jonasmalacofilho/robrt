@@ -109,6 +109,7 @@ libraries:
  - [HaxeFoundation/hxnodejs@master](https://github.com/HaxeFoundation/hxnodejs/tree/master)
  - [jonasmalacofilho/haxe-continuation@robrt](https://github.com/jonasmalacofilho/haxe-continuation/tree/robrt)
  - [jonasmalacofilho/jmf-npm-externs.hx@master](https://github.com/jonasmalacofilho/jmf-npm-externs.hx/tree/master)
+ - [utest](http://lib.haxe.org/p/utest)
 
 Since we're targeting Node.js, the easiest way to have an runnable Robrt is to
 execute `npm pack`.  This will compile the Haxe project into a JS file and
