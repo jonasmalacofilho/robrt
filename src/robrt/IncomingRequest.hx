@@ -17,7 +17,7 @@ class IncomingRequest {
 
 	function new(config:ServerConfig, req:IncomingMessage, res:ServerResponse)
 	{
-		buildId = Crypto.pseudoRandomBytes(4).toString("hex");
+		buildId = Crypto.randomBytes(4).toString("hex");
 		this.config = config;
 		this.req = req;
 		this.res = res;
