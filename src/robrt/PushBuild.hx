@@ -486,6 +486,12 @@ class PushBuild {
 		return 500;
 	}
 
+	@async public function doCleanup()
+	{
+		var err = @await js.npm.Remove.remove(buildDir.dir.base, { ignoreMissing : true });
+		if (err != null) log('ERROR when trying to remove the base build dir: $err');
+	}
+
 	@async public function run()
 	{
 		log("starting build", [EStarted]);
@@ -512,15 +518,18 @@ class PushBuild {
 
 		if (repo.export_options == null) {
 			log("nothing to export, no 'export_options'", [ENoExport]);
+			@await doCleanup();
 			return 200;
 		} else if (repo.export_options.filter != null
 				&& repo.export_options.filter.refs != null
 				&& !Lambda.has(repo.export_options.filter.refs, base.branch)) {
 			log("branch filtered out from exporting", [ENoExport]);
+			@await doCleanup();
 			return 200;
 		}
 
 		status = @await export(status == 0 ? null : { buildLog : true });
+		@await doCleanup();
 		if (status == 0 || status == 200) {
 			log('finished with $status', [EDone]);
 			return 200;
