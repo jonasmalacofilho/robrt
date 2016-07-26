@@ -490,6 +490,8 @@ class PushBuild {
 	{
 		var err = @await js.npm.Remove.remove(buildDir.dir.base, { ignoreMissing : true });
 		if (err != null) log('ERROR when trying to remove the base build dir: $err');
+
+		// TODO docker cleanup
 	}
 
 	@async public function run()
