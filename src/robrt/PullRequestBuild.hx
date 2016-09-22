@@ -20,7 +20,7 @@ class PullRequestBuild extends PushBuild {
 			return false;
 		}
 		log("merging");
-		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --no-commit pull/${pr.number}/head');
+		var err, stdout, stderr = @await ChildProcess.exec('git -C ${buildDir.dir.repository} merge --quiet --commit --no-ff -m "Merge pull request #${pr.number} (at ${pr.commit.substr(0,7)}) into ${base.branch}" pull/${pr.number}/head');
 		if (err != null) {
 			log('ERR: $err', [EFailedMerge]);
 			return false;
