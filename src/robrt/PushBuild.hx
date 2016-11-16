@@ -371,12 +371,14 @@ class PushBuild {
 		// ones, but with some additional contextual information that
 		// allows us to track each command start and finish
 		var wcmds = [];
-		for (id in 0...repoConf.build.cmds.length)
-			wcmds.push('echo "Robrt: starting cmd <$id>"; ${repoConf.build.cmds[id]}; echo "Robrt: finished cmd <$id> with status <$$?>"\n');
+		for (id in 0...repoConf.build.cmds.length) {
+			var scmd = haxe.crypto.Base64.encode(haxe.io.Bytes.ofString(repoConf.build.cmds[id]));
+			wcmds.push('echo "robrt: started cmd <$id>: $scmd: $$(date \'+%s.%N\')"; ${repoConf.build.cmds[id]}; echo "robrt: finished cmd <$id> with status <$$?>: $$(date \'+%s.%N\')"\n');
+		}
 
 		var buffer = "";
 		var id = {
-			pattern : ~/robrt: finished cmd <(\d+)> with status <(\d+)>\n/i,
+			pattern : ~/robrt: finished cmd <(\d+)> with status <(\d+)>(:.+)?\n/i,
 			id : -1
 		};
 
@@ -390,7 +392,7 @@ class PushBuild {
 			var cmd = repoConf.build.cmds[id.id];
 			var wcmd = wcmds[id.id];
 			log('running ${id.id}: $cmd');
-			output.write('+ $cmd\n');
+			output.write('+ $cmd\n');  // TODO deprecated, remove
 			container.stdin.write(wcmd);
 		}
 
