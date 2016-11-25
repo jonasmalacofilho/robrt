@@ -105,6 +105,8 @@ class PushBuild {
 	function getBuildDir(baseBuildDir, id):BuildDir
 	{
 		var base = Path.join(expandPath(baseBuildDir), id);
+		var robrtLog = repo.export_options.destination.build_log;
+		if (robrtLog == null) robrtLog = Path.join(base, "robrt_build_log");
 		var dir =  {
 			dir : {
 				base : base,
@@ -113,7 +115,7 @@ class PushBuild {
 			},
 			file : {
 				docker_build : Path.join(base, "docker_image.tar"),
-				robrt_build_log : Path.join(base, "robrt_build_log")
+				robrt_build_log : robrtLog
 			}
 		}
 		try {
@@ -122,6 +124,7 @@ class PushBuild {
 			// create necessary subdirectories
 			js.npm.MkdirDashP.mkdirSync(dir.dir.base);
 			js.npm.MkdirDashP.mkdirSync(dir.dir.to_export);
+			js.npm.MkdirDashP.mkdirSync(Path.dirname(dir.file.robrt_build_log));
 		} catch (e:Dynamic) {
 			log('Warning: $e; kept going');
 		}
@@ -441,7 +444,7 @@ class PushBuild {
 	function getExportPath()
 		return repo.export_options.destination.branches;
 
-	@async function export(?only:{ ?buildLog:Bool })
+	@async function export()
 	{
 		if (repoConf.export != null && !repoConf.export) {
 			log("export has been disabled in .robrt.json");  // notify something?
@@ -458,19 +461,8 @@ class PushBuild {
 		// 		return 500;
 		// 	}
 
-		if ((only == null || only.buildLog) && repo.export_options.destination.build_log != null) {
-			log("exporting the build log");
-			var bpath = expandPath(repo.export_options.destination.build_log);
-			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
-			var err = @await copyFile(buildDir.file.robrt_build_log, bpath);
-			if (err != null) {
-				log('failure to export log: $err', [EExportError]);
-				return 500;
-			}
-		}
-
 		var exportDir = getExportPath();
-		if (only == null && exportDir != null) {
+		if (exportDir != null) {
 			log("exporting", [EExporting]);
 			log("exporting the build");
 			exportDir = expandPath(exportDir);
@@ -535,7 +527,9 @@ class PushBuild {
 			return 200;
 		}
 
-		status = @await export(status == 0 ? null : { buildLog : true });
+		if (status == 0)
+			status = @await export();
+
 		@await doCleanup();
 		if (status == 0 || status == 200) {
 			log('finished with $status', [EDone]);
