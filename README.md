@@ -70,7 +70,7 @@ FROM ubuntu:latest
 Then, in the build phase, the following will be executed:
 
  - _cd_ into the repository directory; `ROBRT_REPOSITORY_DIR` is a standard
-   environment variable the will always point to where in that container has
+   environment variable that will always point to where in that container has
    the repository been mounted to.
  - _echo_ a constant string to file `.out`
  - export the `.out` file to the world, by placing it where, if so configured,
@@ -80,7 +80,7 @@ Then, in the build phase, the following will be executed:
    exported data
 
 The undocumented (_we're sorry about that!_) structure of `.robrt.json` can be
-seen in [`robrt.repository.RepoConfig`](robrt/repository/RepoConfig.hx).
+seen in [`robrt.repository.RepoConfig`](src/robrt/repository/RepoConfig.hx).
 
 
 ## On the server
@@ -120,7 +120,7 @@ Alternatively, you can simply run the Haxe compiler with `haxe build.hxml`.
 ## Dependencies
 
 Besides the Haxe dependencies, Robrt requires Node.js (4.x) and some NPM
-packages: `dockerode`, `docopt` and `remove`.
+packages: `dockerode`, `docopt` `remove`, mkdir-p` and `ncp`.
 
 Builds execute in Docker containers, so that is another dependency; it's minimum
 required version is yet to be determinated.
