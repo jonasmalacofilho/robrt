@@ -57,7 +57,9 @@ typedef BuildOptions = {
 	// only build some refs; defaults to all
 	?filter : Filter,
 	// notify this targets
-	?notify : Array<NotificationHandler>
+	?notify : Array<NotificationHandler>,
+	// exported environment variables
+	?env : Dynamic<String>
 }
 
 typedef ExportOptions = {

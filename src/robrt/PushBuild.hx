@@ -273,12 +273,15 @@ class PushBuild {
 
 		var repoDir = "/robrt/repository";
 		var expDir = "/robrt/export";
+		var env = ['$RepoPath=$repoDir', '$OutPath=$expDir'];
+		if (repo.build_options.env != null) {
+			var export = repo.build_options.env;
+			for (name in Reflect.fields(export))
+				env.push('$name=${Reflect.field(export, name)}');
+		}
 		var err, container = @await docker.createContainer({
 			Image : imageName,
-			Env : [
-				'$RepoPath=$repoDir',
-				'$OutPath=$expDir'
-			],
+			Env : env,
 			Cmd : "bash",
 			AttachStdin : true,
 			AttachStdout : true,
