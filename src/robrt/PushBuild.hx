@@ -352,6 +352,7 @@ class PushBuild {
 			log("FAILED: could not create container", [EPrepareError]);
 			return 500;
 		}
+		log('container is ${container.container.id}');
 		return 0;
 	}
 

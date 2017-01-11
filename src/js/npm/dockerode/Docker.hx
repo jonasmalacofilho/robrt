@@ -10,6 +10,7 @@ extern class Modem {
 
 extern class Container {
 	var modem:Modem;
+	var id:String;
 
 	@:overload(function(opts:{ stream:Bool, stdin:Bool }, callback:Error->Writable<Dynamic>->Void):Void {})
 	function attach(opts:{ stream:Bool, stdout:Bool, stderr:Bool }, callback:Error->Readable<Dynamic>->Void):Void;
