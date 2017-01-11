@@ -478,11 +478,21 @@ class PushBuild {
 			log("exporting", [EExporting]);
 			log("exporting the build");
 			exportDir = expandPath(exportDir);
-			js.npm.Remove.removeSync(exportDir, { ignoreMissing : true });
-			js.npm.MkdirDashP.mkdirSync(exportDir);
-			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, exportDir);
+			var tdir = '$exportDir.${request.buildId}.dir';
+			js.npm.MkdirDashP.mkdirSync(tdir);
+			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, tdir);
 			if (err != null) {
-				log('failure to export: $err', [EExportError]);
+				log('failure to export (prepare): $err', [EExportError]);
+				return 500;
+			}
+			var err = @await js.npm.Remove.remove(exportDir, { ignoreMissing : true });
+			if (err != null) {
+				log('failure to export (remove): $err', [EExportError]);
+				return 500;
+			}
+			var err = @await js.node.Fs.rename(tdir, exportDir);
+			if (err != null) {
+				log('failure to export (rename): $err', [EExportError]);
 				return 500;
 			}
 			log("export successfull", [EExportSuccess]);
