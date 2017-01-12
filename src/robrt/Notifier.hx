@@ -40,19 +40,13 @@ private class BaseNotifier implements Notifier {
 		}
 	}
 
-	function getPayload(event:Event):Null<Dynamic>
+	function getPayload(event:Event):List<Dynamic>
 	{
 		if (customPayload == null)
-			return null;
+			return new List();
 		var ps = pr == null ? customPayload.branch_builds : customPayload.pull_requests;
-		if (ps == null)
-			return null;
-		for (p in ps) {
-			var f = Lambda.find(p.events, function (e) return e == event);
-			if (f != null)
-				return expand(p.payload);
-		}
-		return null;
+		return Lambda.filter(ps, function (i) return Lambda.find(i.events, function (e) return e == event) != null)
+				.map(function (i) return expand(i.payload));
 	}
 
 	public function notify(event:Event, cb:js.Error->Notifier->Void)
@@ -91,35 +85,37 @@ class GitHubNotifier extends BaseNotifier {
 		var cb = next.cb;
 		trace('dequeue "$event"');
 
-		var p = getPayload(event);
-		if (p == null) {
+		var ps = getPayload(event);
+		if (ps.length == 0) {
 			trace('nothing to do, will pop again immediatly (event was "$event")');
 			pop();
 			return;
 		}
 
-		if (p.context == null)
-			p.context = "Robrt";
+		for (p in ps) {
+			if (p.context == null)
+				p.context = "Robrt";
 
-		var json = haxe.Json.stringify(p);
-		function onRes(res:js.node.http.IncomingMessage) {
-			if (res.statusCode >= 200 && res.statusCode < 300) {
-				trace('will pop again only after 500ms (event was "$event")');
-				js.Node.setTimeout(function () pop(), 500);
-				res.resume();
-			} else {
-				var buf = new StringBuf();
-				res.on("data", function (chunk:String) buf.add(chunk));
-				res.on("end", function (err) {
-					var err = new js.Error('github: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
-					trace('will pop again only after 10000ms (event was "$event")');
-					js.Node.setTimeout(function () pop(), 10000);
-					cb(err, res.statusCode != 403 ? this : null);
-				});
+			var json = haxe.Json.stringify(p);
+			function onRes(res:js.node.http.IncomingMessage) {
+				if (res.statusCode >= 200 && res.statusCode < 300) {
+					trace('will pop again only after 500ms (event was "$event")');
+					js.Node.setTimeout(function () pop(), 500);
+					res.resume();
+				} else {
+					var buf = new StringBuf();
+					res.on("data", function (chunk:String) buf.add(chunk));
+					res.on("end", function (err) {
+						var err = new js.Error('github: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
+						trace('will pop again only after 10000ms (event was "$event")');
+						js.Node.setTimeout(function () pop(), 10000);
+						cb(err, res.statusCode != 403 ? this : null);
+					});
+				}
 			}
+			var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
+			req.end(json);
 		}
-		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
-		req.end(json);
 	}
 
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
@@ -168,25 +164,27 @@ class SlackNotifier extends BaseNotifier {
 
 	override public function notify(event:Event, cb:js.Error->Notifier->Void)
 	{
-		var p = getPayload(event);
-		if (p == null)
+		var ps = getPayload(event);
+		if (ps.length == 0)
 			return;
 
-		var json = haxe.Json.stringify(p);
-		function onRes(res:js.node.http.IncomingMessage) {
-			if (res.statusCode == 200) {
-				res.resume();
-			} else {
-				var buf = new StringBuf();
-				res.on("data", function (chunk:String) buf.add(chunk));
-				res.on("end", function (err) {
-					var err = new js.Error('slack: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
-					cb(err, res.statusCode != 403 ? this : null);
-				});
+		for (p in ps) {
+			var json = haxe.Json.stringify(p);
+			function onRes(res:js.node.http.IncomingMessage) {
+				if (res.statusCode == 200) {
+					res.resume();
+				} else {
+					var buf = new StringBuf();
+					res.on("data", function (chunk:String) buf.add(chunk));
+					res.on("end", function (err) {
+						var err = new js.Error('slack: ${res.statusCode} (${buf.toString().split("\n").join(" ")})');
+						cb(err, res.statusCode != 403 ? this : null);
+					});
+				}
 			}
+			var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
+			req.end(json);
 		}
-		var req = Https.request(untyped reqOpts, onRes);  // FIXME remove untyped
-		req.end(json);
 	}
 
 	public function new(url, repo, base, pr, tags, customPayload)
