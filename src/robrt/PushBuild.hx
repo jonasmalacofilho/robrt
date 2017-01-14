@@ -485,11 +485,7 @@ class PushBuild {
 				log('failure to export (prepare): $err', [EExportError]);
 				return 500;
 			}
-			var err = @await js.npm.Remove.remove(exportDir, { ignoreMissing : true });
-			if (err != null) {
-				log('failure to export (remove): $err', [EExportError]);
-				return 500;
-			}
+			js.npm.Remove.removeSync(exportDir, { ignoreMissing : true });
 			var err = @await js.node.Fs.rename(tdir, exportDir);
 			if (err != null) {
 				log('failure to export (rename): $err', [EExportError]);
