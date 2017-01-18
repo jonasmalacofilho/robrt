@@ -252,6 +252,11 @@ class PushBuild {
 
 	@async function prepareContainer(name:String, refresh:Bool)
 	{
+		if (name.toLowerCase() != name) {
+			log("docker would have failed, container name must be lower case (apparently)");
+			return null;
+		}
+			
 		var err = @await prepareDockerBuild(repoConf.prepare);
 		if (err != null) {
 			log(err);
@@ -347,7 +352,7 @@ class PushBuild {
 		}
 
 		log("preparing", [EPreparing]);
-		container = @await prepareContainer(repo.full_name, false);
+		container = @await prepareContainer(repo.full_name.toLowerCase(), false);
 		if (container == null) {
 			log("FAILED: could not create container", [EPrepareError]);
 			return 500;
