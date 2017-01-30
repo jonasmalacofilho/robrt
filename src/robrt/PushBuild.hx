@@ -535,22 +535,21 @@ class PushBuild {
 			return status;
 
 		status = @await build();
+		var exportOnly = status == 0 ? null : { buildLog : true };
 
 		// TODO close cnx to docker
 
 		if (repo.export_options == null) {
 			log("nothing to export, no 'export_options'", [ENoExport]);
-			@await doCleanup();
-			return 200;
+			exportOnly = { buildLog : true };
 		} else if (repo.export_options.filter != null
 				&& repo.export_options.filter.refs != null
 				&& !Lambda.has(repo.export_options.filter.refs, base.branch)) {
 			log("branch filtered out from exporting", [ENoExport]);
-			@await doCleanup();
-			return 200;
+			exportOnly = { buildLog : true };
 		}
 
-		status = @await export(status == 0 ? null : { buildLog : true });
+		status = @await export(exportOnly);
 		@await doCleanup();
 		if (status == 0 || status == 200) {
 			log('finished with $status', [EDone]);
