@@ -50,6 +50,15 @@ class Robrt {
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
 
+		try {
+			var sms = js.Lib.require("source-map-support");
+			sms.install();
+			haxe.CallStack.wrapCallSite = sms.wrapCallSite;
+			trace("Source map support enabled");
+		} catch (e:Dynamic) {
+			trace("WARNING: could not prepare source map support:", e);
+		}
+
 		trace("Starting");
 
 		var config = readServerConfig();
