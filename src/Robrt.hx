@@ -63,24 +63,20 @@ class Robrt {
 			var server = Http.createServer(handler);
 
 			// handle exit from some signals
-			function controledExit(signal:String)
+			function signalHandler(signal:String)
 			{
-				var code = 128 + switch (signal) {
-				case "SIGINT": 2;
-				case "SIGTERM": 15;
-				case "SIGUSR2": 12;  // nodemon uses this to restart
-				case _: 0;  // ?
-				}
-				trace('Trying a controled shutdown after signal $signal');
-				server.on("close", function () {
-					trace('Succeded in shutting down the HTTP server; exiting now with code $code');
-					js.Node.process.exit(code);
-				});
-				server.close();  // FIXME not really waiting for all responses to finish
+				server.on("close",
+					function () {
+						trace('Succeeded in shutting down the HTTP server; emitting $signal once more');
+						Node.process.kill(Node.process.pid, signal);
+					}
+				);
+				trace('Trying a controlled shutdown after receiving $signal');
+				server.close();  // FIXME not actually waiting for all responses to finish
 			}
-			Node.process.on("SIGINT", controledExit.bind("SIGINT"));
-			Node.process.on("SIGTERM", controledExit.bind("SIGTERM"));
-			Node.process.on("SIGUSR2", controledExit.bind("SIGUSR2"));
+			Node.process.once("SIGINT", signalHandler.bind("SIGINT"));
+			Node.process.once("SIGTERM", signalHandler.bind("SIGTERM"));
+			Node.process.once("SIGUSR2", signalHandler.bind("SIGUSR2"));
 
 			server.listen(port);
 			trace('Listening on port $port');
