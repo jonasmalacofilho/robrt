@@ -1,0 +1,52 @@
+#!/bin/bash
+usage="Usage: build-repo <local-repository> <user>/<remote repository>"
+
+lrepo=$1
+rrepo=$2
+
+if [ -z "$lrepo" ]; then
+	echo "Local repository required"
+	echo $usage
+	exit 1
+fi
+
+if [ -z "$rrepo" ]; then
+	echo "Remote repository required"
+	echo $usage
+	exit 2
+fi
+
+echo "Are sure you want to continue?"
+echo "Local path $lrepo will be completly destroyed"
+echo "Remote repository $rrepo will be completly destroyed"
+read -p "Are you REALLY sure (type in YES)? " -r
+if [[ $REPLY =~ ^YES$ ]]; then
+
+	set -ex
+
+	# start a local repository from scratch
+	rm -rf $lrepo  # DANGER
+	git init $lrepo
+
+	cd $lrepo
+	git remote add origin git@github.com:/$rrepo
+	git commit --allow-empty -m "init"
+	git push -u --force origin HEAD  # DANGER
+	cd -
+
+	# populate the repository with each incremental step
+	for step in $(ls -d step-*); do
+		cp -r $step/. $lrepo
+
+		cd $lrepo
+		git add .
+		git commit -m "test: $step"
+		git push
+		cd -
+	done
+
+else
+	echo "Aborting"
+	exit 1
+fi
+

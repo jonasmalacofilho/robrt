@@ -1,0 +1,12 @@
+{
+  "repositories": [
+    {
+      "full_name": "<user>/<repository>",
+      "hook_secret": "<string>",
+      "oauth2_token": "<token>",
+      "build_options": {
+        "directory": "<local build directory>"
+      }
+    }
+  ]
+}

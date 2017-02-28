@@ -1,0 +1,15 @@
+{
+	"prepare":{
+		"dockerfile":{
+			"type":"path",
+			"data":".robrt.Dockerfile"
+		}
+	},
+	"build":{
+		"cmds":[
+			"echo 'Hello!'",
+			"cowsay Hi"
+		]
+	}
+}
+
