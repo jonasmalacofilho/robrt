@@ -47,6 +47,7 @@ class PushBuild {
 
 	var buildDir:BuildDir;
 	var repoConf:RepoConfig;
+	var logOutput:js.node.fs.WriteStream;
 	var docker:Docker;
 	var container:{ container : Container, stdouts:Readable<Dynamic>, stdin:Writable<Dynamic> };
 
@@ -231,6 +232,21 @@ class PushBuild {
 		return null;
 	}
 
+	/*
+	Handle the build of a Docker Image.
+
+	Monitor the progress, forward the output to the build log and call the
+	callback with the appropriate result (error?).
+
+	Implementation details:
+
+	 - this is made to be compatible with the current log formats supported
+	   by the log viewer
+	 - the cmd number chosen cannot be negative (to break compatibility) or
+	   zero (because it would conflict with the actual build), so we've
+	   settled on the unsigned 2-byte number which has the same hexadecimal
+	   representation as the desired negative number (i.e. -1 => 65535)
+	*/
 	function buildImage(image:String, opts:Dynamic, callback:js.Error->Void)
 	{
 		function cb(err, out:js.node.stream.Readable<Dynamic>) {
@@ -239,13 +255,27 @@ class PushBuild {
 				return;
 			}
 			var buf = new StringBuf();
-			out.on("data", function (chunk) buf.add(chunk));
+			out.on("data", function (chunk) buf.add(chunk) );
 			out.on("error", callback);
-			out.on("end", function () {
-				var out = StringTools.trim(buf.toString()).split("\r\n");
-				var last:haxe.DynamicAccess<String> = haxe.Json.parse(out[out.length - 1]);
-				callback(last.exists("error") ? new js.Error(last["error"]) : null);
-			});
+			out.on("end",
+				function () {
+					var out = StringTools.trim(buf.toString()).split("\r\n");
+					var res = new StringBuf();
+					res.add("+ prepare: build docker image\n");
+					res.add("robrt: started cmd <65535>\n");
+					var err = null;
+					for (r in out) {
+						var r:{ ?stream:String, ?error:String } = haxe.Json.parse(r);
+						if (r.error != null)
+							err = r.error;
+						if (r.stream == null)
+							continue;
+						res.add(r.stream);
+					}
+					var errCode = err == null ? "0" : err.substr(err.indexOf("returned a non-zero code: ") + 26);
+					res.add('robrt: finished cmd <65535> with status <$errCode>\n');
+					logOutput.write(res.toString(), function () callback(err == null ? null : new js.Error(err)) );
+				});
 		}
 		docker.buildImage(image, opts, cb);
 	}
@@ -332,8 +362,6 @@ class PushBuild {
 
 	@async function prepareBuild()
 	{
-		buildDir = getBuildDir(repo.build_options.directory, request.buildId);
-
 		var ok = @await prepareRepository();
 		if (!ok)
 			return 500;
@@ -391,7 +419,6 @@ class PushBuild {
 			id : -1
 		};
 
-		var logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
 		var output = new OutputStream(id);
 		output.pipe(logOutput);
 
@@ -533,6 +560,9 @@ class PushBuild {
 	@async public function run()
 	{
 		log("starting build", [EStarted]);
+
+		buildDir = getBuildDir(repo.build_options.directory, request.buildId);
+		logOutput = Fs.createWriteStream(buildDir.file.robrt_build_log);
 
 		if (repo.build_options == null) {
 			log("nothing to do, no 'build_options'", [ENoBuild]);
