@@ -489,7 +489,7 @@ class PushBuild {
 	 - content export has been disabled on repo .robrt.json
 	 - content export has been disabled because the build has terminated with non 200 status
 	*/
-	@async function export(buildStatus:Int)
+	@async function export(status:Int)
 	{
 		if (repo.export_options == null) {
 			log("nothing to export, no 'export_options'", [ENoExport]);
@@ -503,7 +503,7 @@ class PushBuild {
 
 		var dest = {
 			buildLog : repo.export_options.destination.build_log,
-			content : (buildStatus != 200 || filtered) ? null : getExportPath()
+			content : ((status != 200 && status != 0) || filtered) ? null : getExportPath()
 		}
 
 		if (dest.buildLog != null) {
@@ -577,10 +577,9 @@ class PushBuild {
 		docker = new Docker();
 
 		var status = @await prepareBuild();
-		if (status != 0)
-			return status;
 
-		status = @await build();
+		if (status == 0)
+			status = @await build();
 
 		status = @await export(status);
 
