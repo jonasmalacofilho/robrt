@@ -450,26 +450,38 @@ class PushBuild {
 	function getExportPath()
 		return repo.export_options.destination.branches;
 
-	@async function export(?only:{ ?buildLog:Bool })
+	/*
+	Export content and logs.
+
+	Automatically figure out and handle if:
+
+	 - export has been totally disabled on server config
+	 - ref has been filtered out from exporting on server config
+	 - build log export has disabled on server config
+	 - content export has been disabled on server config
+	 - content export has been disabled on repo .robrt.json
+	 - content export has been disabled because the build has terminated with non 200 status
+	*/
+	@async function export(buildStatus:Int)
 	{
-		if (repoConf.export != null && !repoConf.export) {
-			log("export has been disabled in .robrt.json");  // notify something?
+		if (repo.export_options == null) {
+			log("nothing to export, no 'export_options'", [ENoExport]);
 			return 200;
 		}
+		var filtered = (repo.export_options.filter != null
+				&& repo.export_options.filter.refs != null
+				&& !Lambda.has(repo.export_options.filter.refs, base.branch));
+		if (filtered)
+			log("branch content filtered out from exporting", [ENoExport]);
 
-		// TODO
-		// 	log("exporting the image creation log");
-		// 	var dpath = expandPath(repo.export_options.destination.image_creation_log);
-		// 	js.npm.MkdirDashP.mkdirSync(Path.dirname(dpath));
-		// 	var err = @await copyFile(buildDir.file.docker_build, dpath);
-		// 	if (err != null) {
-		// 		log(err);
-		// 		return 500;
-		// 	}
+		var dest = {
+			buildLog : repo.export_options.destination.build_log,
+			content : (buildStatus != 200 || filtered) ? null : getExportPath()
+		}
 
-		if ((only == null || only.buildLog) && repo.export_options.destination.build_log != null) {
+		if (dest.buildLog != null) {
 			log("exporting the build log");
-			var bpath = expandPath(repo.export_options.destination.build_log);
+			var bpath = expandPath(dest.buildLog);
 			js.npm.MkdirDashP.mkdirSync(Path.dirname(bpath));
 			var err = @await copyFile(buildDir.file.robrt_build_log, bpath);
 			if (err != null) {
@@ -478,20 +490,24 @@ class PushBuild {
 			}
 		}
 
-		var exportDir = getExportPath();
-		if (only == null && exportDir != null) {
+		if (dest.content != null) {
+			if (repoConf.export != null && !repoConf.export) {
+				log("content export has been disabled in .robrt.json");  // notify something?
+				return 200;
+			}
+
 			log("exporting", [EExporting]);
 			log("exporting the build");
-			exportDir = expandPath(exportDir);
-			var tdir = '$exportDir.${request.buildId}.dir';
+			dest.content = expandPath(dest.content);
+			var tdir = '${dest.content}.${request.buildId}.dir';
 			js.npm.MkdirDashP.mkdirSync(tdir);
 			var err = @await js.npm.Ncp.ncp(buildDir.dir.to_export, tdir);
 			if (err != null) {
 				log('failure to export (prepare): $err', [EExportError]);
 				return 500;
 			}
-			js.npm.Remove.removeSync(exportDir, { ignoreMissing : true });
-			var err = @await js.node.Fs.rename(tdir, exportDir);
+			js.npm.Remove.removeSync(dest.content, { ignoreMissing : true });
+			var err = @await js.node.Fs.rename(tdir, dest.content);
 			if (err != null) {
 				log('failure to export (rename): $err', [EExportError]);
 				return 500;
@@ -535,22 +551,13 @@ class PushBuild {
 			return status;
 
 		status = @await build();
-		var exportOnly = status == 0 ? null : { buildLog : true };
 
 		// TODO close cnx to docker
 
-		if (repo.export_options == null) {
-			log("nothing to export, no 'export_options'", [ENoExport]);
-			exportOnly = { buildLog : true };
-		} else if (repo.export_options.filter != null
-				&& repo.export_options.filter.refs != null
-				&& !Lambda.has(repo.export_options.filter.refs, base.branch)) {
-			log("branch filtered out from exporting", [ENoExport]);
-			exportOnly = { buildLog : true };
-		}
+		status = @await export(status);
 
-		status = @await export(exportOnly);
 		@await doCleanup();
+
 		if (status == 0 || status == 200) {
 			log('finished with $status', [EDone]);
 			return 200;
