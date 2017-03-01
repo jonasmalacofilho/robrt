@@ -82,7 +82,6 @@ Then, in the build phase, the following will be executed:
 The undocumented (_we're sorry about that!_) structure of `.robrt.json` can be
 seen in [`robrt.repository.RepoConfig`](src/robrt/repository/RepoConfig.hx).
 
-
 ## On the server
 
 TODO: server stuff (`/etc/robrt` and environment variables)
@@ -92,10 +91,19 @@ specified in the `ROBRT_CONFIG_PATH` environment variable) to know which
 repositories to listen to and to proceed on each `push` or `pull_request`
 event.
 
-## Basics
-
-
 ## Notifications
+
+TODO: GitHub commit statuses, Slack posts.
+
+## The log viewer
+
+Robrt logs need to carry lots of instrumental information and are thus not the
+of the friendliest kind.
+
+To improve that we've created a [log viewer](https://github.com/protocubo/robrt-log-viewer).
+It's a web app than parses the raw log and generates a user-friendly view for
+it, with fences, timing and exit code information and, with ANSI escape
+sequences, support for colors.
 
 
 # Build and run
@@ -119,15 +127,20 @@ Alternatively, you can simply run the Haxe compiler with `haxe build.hxml`.
 
 ## Dependencies
 
-Besides the Haxe dependencies, Robrt requires Node.js (4.x) and some NPM
-packages: `dockerode`, `docopt` `remove`, mkdir-p` and `ncp`.
+Besides the Haxe dependencies, Robrt requires Node.js (4+) and some NPM
+packages: `dockerode`, `docopt` `remove`, `mkdir-p`, `ncp` and `source-map-support`.
 
 Builds execute in Docker containers, so that is another dependency; it's minimum
 required version is yet to be determinated.
 
 Finally, some common executables are also required at runtime: `git` and `tar`.
 
-## Running
+## Testing locally during developing
+
+TODO: checkout the docs/testing folder; also, ngrok might be very convenient
+for inspecting and replaying requests.
+
+## Running in production
 
 TODO: ssl, proxy, run as service
 
