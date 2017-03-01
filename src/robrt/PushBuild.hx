@@ -581,6 +581,7 @@ class PushBuild {
 		if (status == 0)
 			status = @await build();
 
+		@await logOutput.end();
 		status = @await export(status);
 
 		@await doCleanup();
