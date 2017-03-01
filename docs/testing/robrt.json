@@ -6,6 +6,11 @@
       "oauth2_token": "<token>",
       "build_options": {
         "directory": "<local build directory>"
+      },
+      "export_options": {
+        "destination": {
+          "build_log": "<local export of the log ... use $build_id for the id>"
+        }
       }
     }
   ]
