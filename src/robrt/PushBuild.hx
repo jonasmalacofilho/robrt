@@ -552,8 +552,6 @@ class PushBuild {
 
 		status = @await build();
 
-		// TODO close cnx to docker
-
 		status = @await export(status);
 
 		@await doCleanup();
