@@ -1,5 +1,6 @@
 package robrt;
 
+import robrt.Variables;
 import js.node.*;
 
 @:build(com.dongxiguo.continuation.Continuation.cpsByMeta("async"))
@@ -8,6 +9,15 @@ class PullRequestBuild extends PushBuild {
 
 	function delay(dur:Int, cb:Void->Void)
 		js.Node.setTimeout(cb, dur);
+
+	override function fillEnv(env)
+	{
+		env.push('$Base=${base.branch}');
+		env.push('$BaseCommit=${base.commit}');
+		env.push('$Head=pull/${pr.number}/head');
+		env.push('$HeadCommit=${pr.commit}');
+		env.push('$IsPullRequest=1');
+	}
 
 	@async override function prepareRepository()
 	{

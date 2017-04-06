@@ -280,6 +280,13 @@ class PushBuild {
 		docker.buildImage(image, opts, cb);
 	}
 
+	function fillEnv(env:Array<String>)
+	{
+		env.push('$Head=${base.branch}');
+		env.push('$HeadCommit=${base.commit}');
+		env.push('$IsPullRequest=0');
+	}
+
 	@async function prepareContainer(name:String, refresh:Bool)
 	{
 		if (name.toLowerCase() != name) {
@@ -308,7 +315,9 @@ class PushBuild {
 
 		var repoDir = "/robrt/repository";
 		var expDir = "/robrt/export";
+		// TODO figure out how to escape vars to Docker; that's not documented anywhere : /
 		var env = ['$RepoPath=$repoDir', '$OutPath=$expDir'];
+		fillEnv(env);
 		if (repo.build_options.env != null) {
 			var export = repo.build_options.env;
 			for (name in Reflect.fields(export))
