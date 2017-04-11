@@ -94,6 +94,8 @@ class IncomingRequest {
 			res.end('Accepted, starting build id $buildId\n');
 
 			var branch = parsePushRef(e.ref);
+			if (e.deleted)
+				log('DEBUG: e.deleted=true, e.head_commit=${e.head_commit} (see #5)');
 			var base = { branch : branch, commit : e.head_commit.id };
 
 			if (e.deleted) {
