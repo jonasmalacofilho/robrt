@@ -112,10 +112,6 @@ class IncomingRequest {
 			}
 		case GitHubPullRequest(e):
 			switch (e.action) {
-			case Assigned, Unassigned, Labeled, Unlabeled, Closed: // NOOP
-				log('action is ${e.action}; doing nothing');
-				res.writeHead(200);
-				res.end();
 			case Opened, Synchronize, Reopened:
 				log('action is ${e.action}');
 
@@ -134,6 +130,10 @@ class IncomingRequest {
 						return;
 					}
 				}
+			case other:
+				log('action is ${other}; doing nothing');
+				res.writeHead(200);
+				res.end();
 			}
 		}
 	}

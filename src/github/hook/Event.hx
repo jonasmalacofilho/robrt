@@ -85,9 +85,12 @@ typedef Head = {
 @:enum abstract PullRequestAction(String) {
 	var Assigned = "assigned";
 	var Unassigned = "unassigned";
+	var ReviewRequested = "review_requested";
+	var ReviewRequestRemoved = "review_request_removed";
 	var Labeled = "labeled";
 	var Unlabeled = "unlabeled";
 	var Opened = "opened";
+	var Edited = "edited";
 	var Closed = "closed";
 	var Reopened = "reopened";
 	var Synchronize = "synchronize";
