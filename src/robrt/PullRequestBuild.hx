@@ -17,6 +17,8 @@ class PullRequestBuild extends PushBuild {
 		env.push('$Head=pull/${pr.number}/head');
 		env.push('$HeadCommit=${pr.commit}');
 		env.push('$IsPullRequest=1');
+		env.push('BASE_BRANCH=${base.branch}');
+		env.push('PULL_REQUEST=${pr.number}');
 	}
 
 	@async override function prepareRepository()

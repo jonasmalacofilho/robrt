@@ -285,6 +285,9 @@ class PushBuild {
 		env.push('$Head=${base.branch}');
 		env.push('$HeadCommit=${base.commit}');
 		env.push('$IsPullRequest=0');
+		env.push('BASE_BRANCH=${base.branch}');
+		env.push('PULL_REQUEST=""');
+		
 	}
 
 	@async function prepareContainer(name:String, refresh:Bool)
