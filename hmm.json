@@ -4,7 +4,7 @@
       "name": "continuation",
       "type": "git",
       "dir": null,
-      "ref": "robrt",
+      "ref": "master",
       "url": "https://github.com/jonasmalacofilho/haxe-continuation"
     },
     {
