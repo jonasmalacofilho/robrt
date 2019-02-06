@@ -3,7 +3,7 @@ package unit;
 import robrt.TagMap;
 import utest.Assert;
 
-class TagMapTest {
+class TagMapTest extends utest.Test {
 	public function test_000_basic()
 	{
 		var t = new TagMap();
@@ -17,7 +17,5 @@ class TagMapTest {
 		Assert.isFalse(t.exists("foo_bar"));
 		Assert.isNull(t["foo_bar"]);
 	}
-
-	public function new() {}
 }
 
