@@ -1,0 +1,30 @@
+{
+  "dependencies": [
+    {
+      "name": "continuation",
+      "type": "git",
+      "dir": null,
+      "ref": "robrt",
+      "url": "https://github.com/jonasmalacofilho/haxe-continuation"
+    },
+    {
+      "name": "hxnodejs",
+      "type": "git",
+      "dir": null,
+      "ref": "master",
+      "url": "https://github.com/HaxeFoundation/hxnodejs"
+    },
+    {
+      "name": "jmf-npm-externs",
+      "type": "git",
+      "dir": null,
+      "ref": "master",
+      "url": "https://github.com/jonasmalacofilho/jmf-npm-externs.hx"
+    },
+    {
+      "name": "utest",
+      "type": "haxelib",
+      "version": null
+    }
+  ]
+}
