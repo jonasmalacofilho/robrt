@@ -1,0 +1,14 @@
+dist: xenial
+language: haxe
+
+haxe:
+  - development
+
+install:
+  - haxelib --global install hmm
+  - haxelib --global run hmm setup
+  - hmm install
+
+script:
+  - npm pack
+
