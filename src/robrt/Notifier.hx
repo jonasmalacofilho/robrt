@@ -40,10 +40,10 @@ private class BaseNotifier implements Notifier {
 		}
 	}
 
-	function getPayload(event:Event):List<Dynamic>
+	function getPayload(event:Event):Array<Dynamic>
 	{
 		if (customPayload == null)
-			return new List();
+			return [];
 		var ps = pr == null ? customPayload.branch_builds : customPayload.pull_requests;
 		return Lambda.filter(ps, function (i) return Lambda.find(i.events, function (e) return e == event) != null)
 				.map(function (i) return expand(i.payload));
