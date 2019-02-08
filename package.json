@@ -1,6 +1,6 @@
 {
   "name": "robrt",
-  "version": "0.0.1-alpha.1",
+  "version": "0.0.2-dev",
   "description": "A robot that listens to GitHub events and deploys stuff",
   "bin": {
     "robrt": "robrt"

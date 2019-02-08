@@ -16,7 +16,7 @@ Environment variables:
 **/
 @:rtti
 class Robrt {
-	static inline var VERSION = "0.0.1-alpha.1";
+	static inline var VERSION = 'robrt ${Version.getProject()} (haxe ${Version.getHaxe()})';
 
 	public static function ctrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
