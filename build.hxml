@@ -5,6 +5,7 @@
 
 -js robrt.js
 -main Robrt
+-lib version
 -lib hxnodejs
 -lib jmf-npm-externs
 -lib continuation

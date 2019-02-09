@@ -16,7 +16,13 @@ Environment variables:
 **/
 @:rtti
 class Robrt {
-	static inline var VERSION = 'robrt ${Version.getProject()} (haxe ${Version.getHaxe()})';
+	static var VERSION = {
+		var pkg = Version.getVersion("package.json");
+		var sha = Version.getGitCommitHash().substr(0, 9);
+		var dirty = Version.isGitTreeDirty();
+		var haxe = Version.getHaxeCompilerVersion();
+		'robrt v${pkg}+${sha}${dirty ? "-dirty" : ""} (haxe v${haxe})';
+	}
 
 	public static function ctrace(msg:Dynamic, ?p:haxe.PosInfos)
 	{
