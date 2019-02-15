@@ -10,5 +10,6 @@ install:
   - hmm install
 
 script:
-  - npm pack
+  - npm install --global
+  - robrt --version
 
