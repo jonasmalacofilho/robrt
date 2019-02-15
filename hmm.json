@@ -32,6 +32,13 @@
       "dir": null,
       "ref": "for-robrt",
       "url": "https://github.com/jonasmalacofilho/haxe-version"
+    },
+    {
+      "name": "yaml",
+      "type": "git",
+      "dir": "src",
+      "ref": "master",
+      "url": "https://github.com/mikestead/hx-yaml"
     }
   ]
 }

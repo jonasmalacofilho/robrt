@@ -1,0 +1,27 @@
+prepare:
+  dockerfile:
+    type: inline
+    data: |
+      FROM ubuntu:18.04
+      RUN apt-get update -y
+      RUN apt-get dist-upgrade -y
+      RUN apt-get install -y software-properties-common
+
+build:
+  cmds:
+    - cd $ROBRT_REPOSITORY_DIR
+    - docs/istall-haxelibs
+    - npm install --global
+    # - robrt --version  # TODO fix environment
+    - npm pack
+
+export:
+  cmds:
+    - cd $ROBRT_REPOSITORY_DIR
+    # TODO only if branch == master
+    - cp robrt-*.tgz $ROBRT_OUTPUT_DIR/robrt-latest-master.tgz
+    # TODO only if not pull request
+    # - cp robrt-*.tgz $ROBRT_OUTPUT_DIR/robrt-<commit>.tgz  # TODO fetch commit
+    # TODO only if pull request
+    # - cp robrt-*.tgz $ROBRT_OUTPUT_DIR/robrt-merge-<pr>-<commit>-<base>.tgz  # TODO fetch commit
+

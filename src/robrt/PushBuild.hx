@@ -8,6 +8,7 @@ import robrt.Notifier;
 import robrt.Variables;
 import robrt.repository.RepoConfig;
 import robrt.server.BuildDir;
+import robrt.ConfigFileUtils;
 import robrt.server.ServerConfig;
 
 class OutputStream extends Transform<OutputStream> {
@@ -179,11 +180,8 @@ class PushBuild {
 		// for this it is necessary to store context for Context.typeof or abandon that method
 		// of choosing how to transform ETry expressions
 		try {
-			var p = Path.join(repoDir, ".robrt.json");
-			if (!sys.FileSystem.exists(p))
-				return {};
-			var confData = Fs.readFileSync(p, "utf8");
-			return haxe.Json.parse(confData);
+			var path = Path.join(repoDir, ".robrt.json");
+			return ConfigFileUtils.readRepoConfig(path);
 		} catch (e:Dynamic) {
 			return null;
 		}

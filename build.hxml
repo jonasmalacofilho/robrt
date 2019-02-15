@@ -9,6 +9,7 @@
 -lib hxnodejs
 -lib jmf-npm-externs
 -lib continuation
+-lib yaml
 -D js-source-map
 
 --next

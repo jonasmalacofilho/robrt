@@ -1,13 +1,14 @@
 import js.Node;
 import js.node.*;
+import robrt.ConfigFileUtils;
 import robrt.Variables;
-import robrt.server.ServerConfig;
 
 /**
 Robrt: a robot that listens to GitHub events and deploys stuff.
 
 Usage:
   robrt.js listen <port>
+  robrt.js parse-config [--dump-json | --dump-yaml] <file>
   robrt.js -h | --help
   robrt.js --version
 
@@ -34,20 +35,23 @@ class Robrt {
 			lines.push(loc);
 		else
 			lines[lines.length - 1] += '  $loc';
-		Node.console.log(lines.join("\n... "));
+		Node.console.warn(lines.join("\n... "));
 	}
 
-	static function readServerConfig()
+	static function parseConfigOnly(options:haxe.DynamicAccess<Dynamic>)
 	{
-		var path = Sys.getEnv(ServerVariables.ConfigPath);
-		if (path == null)
-			path = "/etc/robrt.json";
-		if (!sys.FileSystem.exists(path) || sys.FileSystem.isDirectory(path))
-			throw 'Invalid config path: $path';
-		trace('Reading config file from $path');
-		var data = haxe.Json.parse(sys.io.File.getContent(path));
-		// TODO validate data
-		return (data:ServerConfig);
+		var path = options["<file>"];
+		var configFile = ConfigFileUtils.read(path);
+		var untypedData:Dynamic = configFile.getParameters()[0];  // hack
+
+		// TODO validate according to file type
+
+		if (options["--dump-yaml"])
+			Sys.println(yaml.Yaml.render(untypedData));
+		else if (options["--dump-json"])
+			Sys.println(haxe.Json.stringify(untypedData, null, "\t"));
+
+		Sys.exit(0);
 	}
 
 	static function main()
@@ -55,6 +59,9 @@ class Robrt {
 		haxe.Log.trace = function (msg, ?p) ctrace('  * $msg', p);
 		var usage = haxe.rtti.Rtti.getRtti(Robrt).doc;
 		var options = js.npm.Docopt.docopt(usage, { version : VERSION });
+
+		if (options["parse-config"])
+			return parseConfigOnly(options);
 
 		try {
 			var sms = js.Lib.require("source-map-support");
@@ -67,7 +74,8 @@ class Robrt {
 
 		trace("Starting");
 
-		var config = readServerConfig();
+		var configPath = Sys.getEnv(ServerVariables.ConfigPath);
+		var config = ConfigFileUtils.readServerConfig(configPath);
 		var handler = robrt.IncomingRequest.handleRequest.bind(config);
 
 		if (options["listen"]) {
