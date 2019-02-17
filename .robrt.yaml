@@ -10,10 +10,12 @@ prepare:
 build:
   cmds:
     - cd $ROBRT_REPOSITORY_DIR
-    - docs/istall-haxelibs
-    - npm install --global
-    # - robrt --version  # TODO fix environment
+    - haxelib --global install hmm
+    - haxelib --global run hmm setup
+    - hmm install
     - npm pack
+    - npm install --global `ls robrt-*.tgz`
+    - robrt --version
 
 export:
   cmds:
