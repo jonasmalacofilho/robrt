@@ -11,6 +11,8 @@
 -lib continuation
 -lib yaml
 -D js-source-map
+--macro BuildUtils.addShebang("/usr/bin/env", "node")
+--macro BuildUtils.makeExecutable()
 
 --next
 

@@ -28,6 +28,6 @@
     "source-map-support": "^0.4.11"
   },
   "scripts": {
-    "prepublish": "[ \"$npm_config_dev\" = \"true\" ] && exit 0; echo '=> Compiling (Haxe -> JS)'; haxe build.hxml && sed -i '1s;^;#!/usr/bin/env node\\n;' robrt.js && chmod +x robrt.js"
+    "prepare": "haxe build.hxml"
   }
 }
