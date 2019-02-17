@@ -1,5 +1,7 @@
 # Robrt
 
+[![Build Status](https://travis-ci.org/jonasmalacofilho/robrt.svg?branch=master)](https://travis-ci.org/jonasmalacofilho/robrt)
+
 Robrt is a simple, automated and configurable build system for projects hosted
 on GitHub.
 
