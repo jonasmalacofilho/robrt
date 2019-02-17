@@ -10,7 +10,9 @@ install:
   - hmm install
 
 script:
+  - echo 'Building and packaging robrt' && echo -en 'travis_fold:start:script.1\\r'
   - npm pack
+  - echo -en 'travis_fold:end:script.1\\r'
   - npm install --global `ls robrt-*.tgz`
   - robrt --version
 
