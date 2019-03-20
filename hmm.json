@@ -30,8 +30,8 @@
       "name": "version",
       "type": "git",
       "dir": null,
-      "ref": "for-robrt",
-      "url": "https://github.com/jonasmalacofilho/haxe-version"
+      "ref": "master",
+      "url": "https://github.com/ypid/haxe-version"
     },
     {
       "name": "yaml",
